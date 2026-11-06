@@ -1,15 +1,12 @@
 import { Routes, Route } from "react-router-dom";
+import ConnectionPage from "./pages/public/ConnectionPage";
 
 function App() {
   return (
     <Routes>
       <Route
         path="/"
-        element={
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <h1>Menú Digital mitbol 🍔</h1>
-          </div>
-        }
+        element={<ConnectionPage />}
       />
 
       <Route
