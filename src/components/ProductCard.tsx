@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { formatPrice, formatRepresentativePrice, getRepresentativeImage } from '../services/menu'
+import {
+  formatPrice,
+  formatRepresentativePrice,
+  getProductTagNames,
+  getRepresentativeImage,
+  getVariantTagNames,
+} from '../services/menu'
 import type { MenuProduct } from '../services/menu'
 
 function citrusMark() {
@@ -29,6 +35,7 @@ export default function ProductCard({ product, currency, onSelect }: {
   const [imgError, setImgError] = useState(false)
   const imageUrl = getRepresentativeImage(product)
   const isAvailable = product.is_available && product.is_active
+  const productTags = getProductTagNames(product)
 
   return (
     <article className={`product-card ${!isAvailable ? 'product-card-unavailable' : ''}`}>
@@ -64,6 +71,16 @@ export default function ProductCard({ product, currency, onSelect }: {
           <p className="price">{formatRepresentativePrice(product, currency)}</p>
         </div>
 
+        {productTags.length > 0 && (
+          <div className="public-tags-row" aria-label="Etiquetas del producto">
+            {productTags.map((tagName) => (
+              <span key={tagName} className="public-tag-pill">
+                {tagName}
+              </span>
+            ))}
+          </div>
+        )}
+
         <p className="description">
           {product.description?.trim() || 'Platillo preparado al momento con ingredientes frescos.'}
         </p>
@@ -72,14 +89,24 @@ export default function ProductCard({ product, currency, onSelect }: {
           <ul className="variants" aria-label={`Presentaciones de ${product.name}`}>
             {product.variants.map((variant) => {
               const variantAvailable = isAvailable && variant.is_available
+              const vTags = getVariantTagNames(variant)
               return (
                 <li key={variant.product_variant_id}>
-                  <span className="variant-row-name">
-                    {variant.name}
-                    <small className={variantAvailable ? 'status-dot-ok' : 'status-dot-out'}>
-                      {variantAvailable ? 'Disponible' : 'Agotado'}
-                    </small>
-                  </span>
+                  <div className="variant-row-left">
+                    <span className="variant-row-name">
+                      {variant.name}
+                      <small className={variantAvailable ? 'status-dot-ok' : 'status-dot-out'}>
+                        {variantAvailable ? 'Disponible' : 'Agotado'}
+                      </small>
+                    </span>
+                    {vTags.length > 0 && product.variants.length > 1 && (
+                      <div className="variant-mini-tags">
+                        {vTags.map((t) => (
+                          <span key={t} className="variant-mini-tag">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <span className="variant-row-price">{formatPrice(variant.price, currency)}</span>
                 </li>
               )

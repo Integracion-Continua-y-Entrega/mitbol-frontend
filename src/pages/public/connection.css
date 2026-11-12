@@ -780,3 +780,44 @@ pre {
     align-items: flex-start;
   }
 }
+
+/* Etiquetas públicas de producto y variante (HU-005 / HU-001) */
+.public-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.15rem 0;
+}
+
+.public-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: var(--mitbol-primary-soft);
+  color: var(--mitbol-primary-dark);
+  border: 1px solid rgba(98, 125, 50, 0.25);
+}
+
+.variant-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.variant-mini-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.variant-mini-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  background: var(--mitbol-tertiary-soft);
+  color: var(--mitbol-primary-dark);
+}

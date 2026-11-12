@@ -88,6 +88,19 @@ export function formatPrice(price: string | null, currency: string): string {
   return price === null ? 'Precio no informado' : `${price} ${currency}`
 }
 
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url || !url.trim()) return null
+  const trimmed = url.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed
+  }
+  const metaEnv = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env
+  const rawBase = metaEnv?.VITE_API_URL?.trim() || 'https://mitbol-backend.onrender.com'
+  const base = rawBase.replace(/\/+$/, '')
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  return `${base}${path}`
+}
+
 export function formatRepresentativePrice(item: MenuProduct, currency: string): string {
   if (item.price_min === null) {
     if (item.variants.length === 1) {
@@ -103,19 +116,44 @@ export function formatRepresentativePrice(item: MenuProduct, currency: string): 
 
 export function getRepresentativeImage(item: MenuProduct, selectedVariant?: MenuVariant | null): string | null {
   if (selectedVariant) {
-    if (selectedVariant.image_url) return selectedVariant.image_url
+    if (selectedVariant.image_url) return resolveMediaUrl(selectedVariant.image_url)
     if (Array.isArray(selectedVariant.images)) {
       for (const img of selectedVariant.images) {
-        if (typeof img === 'string' && img.trim()) return img
-        if (record(img) && typeof img.image_url === 'string' && img.image_url.trim()) return img.image_url
+        if (typeof img === 'string' && img.trim()) return resolveMediaUrl(img)
+        if (record(img) && typeof img.image_url === 'string' && img.image_url.trim()) {
+          return resolveMediaUrl(img.image_url)
+        }
       }
     }
   }
-  if (item.image_url) return item.image_url
+  if (item.image_url) return resolveMediaUrl(item.image_url)
   for (const v of item.variants) {
-    if (v.image_url) return v.image_url
+    if (v.image_url) return resolveMediaUrl(v.image_url)
   }
   return null
+}
+
+export function getVariantTagNames(v: MenuVariant | null | undefined): string[] {
+  if (!v || !Array.isArray(v.tags)) return []
+  const names: string[] = []
+  for (const t of v.tags) {
+    if (typeof t === 'string' && t.trim()) {
+      names.push(t.trim())
+    } else if (record(t) && typeof t.name === 'string' && t.name.trim()) {
+      names.push(t.name.trim())
+    }
+  }
+  return Array.from(new Set(names))
+}
+
+export function getProductTagNames(item: MenuProduct): string[] {
+  const all = new Set<string>()
+  for (const v of item.variants) {
+    for (const name of getVariantTagNames(v)) {
+      all.add(name)
+    }
+  }
+  return Array.from(all)
 }
 
 export function normalizeVariantModifiers(rawModifiers?: unknown[]): NormalizedModifierGroup[] {
@@ -138,11 +176,13 @@ export function normalizeVariantModifiers(rawModifiers?: unknown[]): NormalizedM
         : typeof rawPrice === 'number'
           ? rawPrice.toFixed(2)
           : null
-      const isAvailable = typeof opt.is_available === 'boolean'
-        ? opt.is_available
-        : typeof opt.is_active === 'boolean'
-          ? opt.is_active
-          : true
+      const isAvailable = typeof opt.can_order === 'boolean'
+        ? opt.can_order
+        : typeof opt.is_available === 'boolean'
+          ? opt.is_available
+          : typeof opt.is_active === 'boolean'
+            ? opt.is_active
+            : true
 
       return [{
         id: String(opt.product_complement_id ?? opt.complement_id ?? opt.id ?? `${modIdx}-${optIdx}`),

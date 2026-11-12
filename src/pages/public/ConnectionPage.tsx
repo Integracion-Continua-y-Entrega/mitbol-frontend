@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
+import { MENU_SYNC_CHANNEL, MENU_SYNC_STORAGE_KEY } from '../../services/adminApi'
 import { API_URL } from '../../services/config'
 import {
   formatPrice,
   formatRepresentativePrice,
   getRepresentativeImage,
+  getVariantTagNames,
   normalizeVariantModifiers,
   parseHealth,
   parseMenu,
   parseProduct,
 } from '../../services/menu'
-import type { MenuProduct } from '../../services/menu'
+import type { MenuProduct, MenuResponse, ProductResponse } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import './connection.css'
 
@@ -73,6 +75,46 @@ function Failure({ message, retry }: { message: string; retry: () => void }) {
   )
 }
 
+function useAutoSync(onSync: () => void) {
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel(MENU_SYNC_CHANNEL)
+        bc.onmessage = () => onSync()
+      }
+    } catch {
+      // Ignorar si BroadcastChannel no está disponible
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === MENU_SYNC_STORAGE_KEY) onSync()
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') onSync()
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', onSync)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        onSync()
+      }
+    }, 10000)
+
+    return () => {
+      bc?.close()
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', onSync)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.clearInterval(intervalId)
+    }
+  }, [onSync])
+}
+
 function BackendStatus() {
   const { result, retry } = useApi('/', parseHealth)
   return (
@@ -118,6 +160,7 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
 
   const imageUrl = getRepresentativeImage(product, selectedVariant)
   const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers)
+  const selectedVariantTags = getVariantTagNames(selectedVariant)
   const isProductAvailable = product.is_active && product.is_available
 
   return (
@@ -126,6 +169,7 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
         <div className="detail-media">
           {imageUrl && !imgError ? (
             <img
+              key={imageUrl}
               src={imageUrl}
               alt={selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name}
               className="detail-image"
@@ -146,6 +190,17 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
             </span>
           </div>
           <h3>{product.name}</h3>
+
+          {selectedVariantTags.length > 0 && (
+            <div className="public-tags-row" aria-label="Etiquetas de la presentación">
+              {selectedVariantTags.map((tagName) => (
+                <span key={tagName} className="public-tag-pill">
+                  {tagName}
+                </span>
+              ))}
+            </div>
+          )}
+
           <p className="description">{product.description?.trim() || 'Descripción no disponible.'}</p>
 
           <p className="price detail-price">
@@ -169,6 +224,7 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
             {product.variants.map((variant) => {
               const isSelected = selectedVariant?.product_variant_id === variant.product_variant_id
               const variantAvailable = isProductAvailable && variant.is_available
+              const vTags = getVariantTagNames(variant)
               return (
                 <button
                   key={variant.product_variant_id}
@@ -182,6 +238,13 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
                 >
                   <span className="variant-option-name">{variant.name}</span>
                   <span className="variant-option-price">{formatPrice(variant.price, currency)}</span>
+                  {vTags.length > 0 && (
+                    <div className="variant-mini-tags">
+                      {vTags.map((t) => (
+                        <span key={t} className="variant-mini-tag">{t}</span>
+                      ))}
+                    </div>
+                  )}
                   <small className="variant-option-status">
                     {variantAvailable ? 'Disponible' : 'Agotado'}
                   </small>
@@ -242,6 +305,16 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
 
 function ProductDetail({ id, close }: { id: number; close: () => void }) {
   const { result, retry } = useApi(`/api/menu/${encodeURIComponent(id)}`, parseProduct)
+  const [cachedDetail, setCachedDetail] = useState<ProductResponse | null>(null)
+
+  if (result.status === 'success' && result.data && result.data !== cachedDetail) {
+    setCachedDetail(result.data)
+  }
+
+  useAutoSync(retry)
+
+  const displayData = result.status === 'success' ? result.data : cachedDetail
+
   return (
     <section id="product-detail" className="panel detail" aria-labelledby="detail-heading" aria-live="polite">
       <div className="section-heading">
@@ -251,14 +324,14 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
         </div>
         <button className="btn-secondary" onClick={close}>Cerrar detalle ✕</button>
       </div>
-      {result.status === 'loading' && <Loading />}
-      {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-      {result.status === 'success' && (result.data?.product ? <>
-        <ProductDetailContent product={result.data.product} currency={result.data.currency} />
+      {result.status === 'loading' && !displayData && <Loading />}
+      {result.status === 'error' && !displayData && <Failure message={result.message} retry={retry} />}
+      {displayData && (displayData.product ? <>
+        <ProductDetailContent product={displayData.product} currency={displayData.currency} />
         <div className="detail-footer-actions">
           <details className="json-details">
             <summary>Ver respuesta JSON (`GET /api/menu/{id}`)</summary>
-            <pre>{JSON.stringify(result.data, null, 2)}</pre>
+            <pre>{JSON.stringify(displayData, null, 2)}</pre>
           </details>
           <button className="btn-outlined" onClick={retry}>Actualizar detalle</button>
         </div>
@@ -270,6 +343,15 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
 export default function ConnectionPage() {
   const { result, retry } = useApi('/api/menu', parseMenu)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [cachedMenu, setCachedMenu] = useState<MenuResponse | null>(null)
+
+  if (result.status === 'success' && result.data && result.data !== cachedMenu) {
+    setCachedMenu(result.data)
+  }
+
+  useAutoSync(retry)
+
+  const activeMenu = result.status === 'success' ? result.data : cachedMenu
 
   return (
     <div className="connection-page">
@@ -304,7 +386,7 @@ export default function ConnectionPage() {
               <span className="bar bar-lime" />
             </div>
             <p className="welcome-card-title">Frescura al momento</p>
-            <p className="welcome-card-sub">Catálogo sincronizado directamente con nuestra cocina.</p>
+            <p className="welcome-card-sub">Catálogo sincronizado en tiempo real con nuestra cocina.</p>
           </div>
         </section>
 
@@ -317,18 +399,18 @@ export default function ConnectionPage() {
             <button className="btn-outlined" onClick={retry}>↻ Actualizar catálogo</button>
           </div>
 
-          {result.status === 'loading' && <Loading />}
-          {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-          {result.status === 'success' && (result.data && result.data.products.length > 0 ? <>
+          {result.status === 'loading' && !activeMenu && <Loading />}
+          {result.status === 'error' && !activeMenu && <Failure message={result.message} retry={retry} />}
+          {activeMenu && (activeMenu.products.length > 0 ? <>
             <p className="catalog-meta">
-              Mostrando <strong>{result.data.products.length}</strong> {result.data.products.length === 1 ? 'platillo' : 'platillos'} · Moneda: <strong>{result.data.currency}</strong>
+              Mostrando <strong>{activeMenu.products.length}</strong> {activeMenu.products.length === 1 ? 'platillo' : 'platillos'} · Moneda: <strong>{activeMenu.currency}</strong>
             </p>
             <div className="product-grid">
-              {result.data.products.map((product) => (
+              {activeMenu.products.map((product) => (
                 <ProductCard
                   key={product.product_id}
                   product={product}
-                  currency={result.data!.currency}
+                  currency={activeMenu.currency}
                   onSelect={() => {
                     setSelectedId(product.product_id)
                     setTimeout(() => {
