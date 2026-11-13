@@ -1,162 +1,132 @@
-# MITBOL · frontend del menú digital
+# MITBOL frontend
 
-Proyecto integrador de Desarrollo de Sistemas Web. Página pública provisional para verificar React → FastAPI en Render → catálogo almacenado por el backend en PostgreSQL/Neon. El navegador solo consulta la API; nunca se conecta directamente a Neon.
+Menú digital público de MITBOL desarrollado con React, TypeScript y Vite. Permite consultar productos, disponibilidad, precios, presentaciones y complementos desde el navegador.
 
-## Estado encontrado y alcance
+La rama `feature/fe2-menu-movil` incorpora la adaptación a dispositivos móviles del menú y los detalles de productos (HU-001 y HU-003), sobre el trabajo de `feature/fe1-menu-y-detalles` (`217df1c`). También configura el acceso desde teléfonos en la red local para probar la integración con el backend de Render.
 
-- React y React DOM (19.3.0 resueltos por el lockfile), TypeScript 6.0.3, Vite 8.3.0 y React Router DOM 7.18.3. No utiliza CRA ni Next.js.
-- npm con `package-lock.json` v3. Dependencias de ejecución: `react`, `react-dom`, `react-router-dom`. Herramientas: TypeScript, Vite, plugin React, ESLint 10, typescript-eslint, plugins de React Hooks/Refresh, globals y tipos de React/Node. `npm ls --depth=0` muestra las versiones instaladas.
-- Inicialmente solo existían `App.tsx`, `main.tsx` y carpetas con `.gitkeep`: `assets`, `components`, `context`, `pages/admin`, `pages/public`, `routes`, `services`, `utils`.
-- `BrowserRouter` ya estaba activo: `/`, `/admin`, `/admin/dashboard` y `*` (404). Las rutas administrativas eran placeholders, sin autenticación ni llamadas API; se conservan tal como estaban. No constituyen un panel protegido ni funcional.
-- `.env` y `.env.example` estaban vacíos. No existían cliente API, estilos, pruebas ni workflows de GitHub Actions. TypeScript y ESLint ya estaban configurados.
-- Scripts originales: `dev` (Vite), `build` (`tsc -b && vite build`), `lint` (ESLint), `preview` (Vite). Se añadieron `typecheck` y `test`, sin dependencias nuevas.
-- Vite no tenía `outDir` personalizado: el build comprobado genera `dist/`. La raíz del proyecto coincide con la raíz Git.
-- No había versión de Node fijada. Vite exige Node 20.19+ o 22.12+; ESLint exige 20.19+, 22.13+ o 24+. Ahora `.node-version` fija **24.22.1** para Render; `engines` admite las ramas 22 desde 22.13 y 24.
-- Al iniciar, el árbol estaba limpio en `develop`. `main`, `develop`, `origin/main` y `origin/develop` apuntaban a `1e8087b`. Se comprobaron las dos ramas remotas con `git ls-remote`. No se cambiaron ramas, ni se hicieron commits, push o despliegues.
+## Ejecutar en local
 
-## Cambios y funcionamiento
-
-- `src/pages/public/ConnectionPage.tsx` y `connection.css`: bienvenida responsive, estado independiente del backend, catálogo de hasta seis productos, selección de detalle, carga, respuesta vacía, errores y reintentos.
-- `src/components/ProductCard.tsx`: nombre, descripción o respaldo explícito, rango de precios, variantes y disponibilidad. El monograma es decorativo; no se inventan fotos. Precios y moneda proceden de la API, conservando las cadenas decimales.
-- `src/services/config.ts`: única configuración de URL base mediante `VITE_API_URL`, con respaldo al backend público existente.
-- `src/services/api.ts`: solicitudes JSON sin credenciales, barras normalizadas, errores HTTP, JSON inválido, red/CORS y timeout de 90 segundos. Se cancelan consultas al desmontar o cambiar producto mediante `useApi.ts`.
-- `src/services/menu.ts`: tipos y validación del contrato observado en producción (`products`/`product`, `currency`, `product_id`, `product_variant_id`, precios como strings y campos nulos).
-- `src/App.tsx`: sustituye únicamente la portada `/` por esta página. `index.html`: idioma español, título y descripción; elimina la referencia al favicon inexistente.
-- `.env.example`, `.gitignore`, `.node-version`, `package.json` y lockfile: configuración pública, archivos locales ignorados, Node y comandos de validación. El lockfile conserva las versiones y metadatos de plataforma existentes.
-- `tests/api.test.ts`: nueve pruebas con fixtures solo de pruebas; la aplicación no importa mocks ni contiene productos/precios de respaldo.
-
-Solo se consumen `GET /`, `GET /api/menu` y, al seleccionar un producto, `GET /api/menu/{product_id}`. Esta página se puede sustituir después por las vistas del equipo. No implementa login, sesiones, pagos, pedidos ni administración.
-
-## Uso local y variables
-
-Instala Node **24.22.1** (o una versión admitida por `engines`) y ejecuta desde la raíz:
+Usa una versión de Node admitida por `package.json` (22.13+ de la rama 22, o 24).
 
 ```powershell
 npm ci
 Copy-Item .env.example .env.local
-npm run dev -- --port 5173 --strictPort
+npm run dev
 ```
 
-Abre **http://localhost:5173**, usando ese host y puerto exactos porque ya están permitidos por CORS. `--strictPort` evita que Vite cambie silenciosamente a un origen no autorizado.
-
-Única variable pública de la aplicación:
+Abre http://localhost:5173. El backend compartido está en Render; no se necesita instalar FastAPI ni PostgreSQL.
 
 ```dotenv
-VITE_API_URL=https://mitbol-backend.onrender.com
+VITE_API_BASE_URL=https://mitbol-backend.onrender.com
 ```
 
-Usa la raíz del backend, sin `/api/menu`. Para apuntar a otro backend, cambia `.env.local` y reinicia Vite. Las variables `VITE_*` se incorporan al JavaScript público durante el build: no incluyas secretos, tokens ni credenciales de PostgreSQL. En Render, cambiar esta variable exige un nuevo build. Véase [variables de Vite](https://vite.dev/guide/env-and-mode).
+Se mantiene `VITE_API_URL` como alternativa para instalaciones anteriores. Si ambas están definidas, tiene prioridad `VITE_API_BASE_URL`. Reinicia Vite al cambiar variables. Las variables `VITE_*` son públicas; no contienen contraseñas ni secretos.
 
-El `.env` vacío ya estaba versionado y se dejó intacto. Usa `.env.local`, que está ignorado. `.gitignore` no deja de seguir archivos previamente versionados: al preparar el commit puedes retirar ese `.env` vacío del índice con `git rm --cached .env`, sin borrar tu copia local.
+### Probar desde un teléfono
 
-Validaciones:
+Conecta el teléfono y la computadora a la misma red Wi-Fi y ejecuta `npm run dev`. Abre desde el teléfono la dirección `Network` que imprime Vite, por ejemplo `http://192.168.1.25:5173`. Si no aparece, ejecuta `ipconfig` y utiliza la dirección IPv4 del adaptador conectado. Mantén abierta la terminal. Si Windows solicita acceso de Node.js a la red, permite el acceso en tu red privada.
+
+`vite.config.ts` habilita la red local en el puerto 5173 y configura un proxy `/backend`. En desarrollo, el cliente consulta el mismo origen desde el que abriste la página: `/backend/api/menu` se reenvía al backend como `/api/menu`, y `/backend/` al diagnóstico `/`. Así, el navegador del teléfono no realiza consultas entre orígenes y no necesitas agregar la IP local a CORS para estas consultas públicas. Mantén `VITE_API_BASE_URL` apuntando a Render.
+
+El proxy solo existe con el servidor de desarrollo. El build de producción consulta directamente la URL configurada y requiere que el backend permita el origen publicado. La autenticación y las escrituras administrativas requieren una validación independiente de cookies y CSRF.
+
+El menú consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnóstico `GET /` sin sesión. El panel administrativo conserva sus solicitudes directas a Render con `credentials: "include"` y protección CSRF en escrituras. Para acceder al panel en desarrollo, utiliza `http://localhost:5173/admin`, un origen autorizado por el backend. El proxy de la red local se utiliza para el menú público; el inicio de sesión administrativo desde la IP del teléfono requiere validar CORS y cookies por separado.
+
+## Alcance de los ajustes móviles
+
+- Cuadrículas que caben desde 320 px sin anchos mínimos que desborden la pantalla.
+- Nombres, precios, variantes y complementos que pueden distribuirse en varias líneas.
+- Cabecera, navegación, botones y avisos adaptados a pantallas pequeñas; áreas táctiles de al menos 44 px.
+- Imágenes proporcionadas y márgenes que respetan las áreas seguras de dispositivos móviles.
+- Foco y desplazamiento al abrir el detalle; al cerrarlo, regreso al botón del producto. Compatible con preferencia de movimiento reducido.
+- Acceso por teclado, enlace para saltar al menú y contorno de foco visible.
+- Acceso al servidor de desarrollo desde la red local y proxy de Vite para consultar productos sin configurar CORS por cada IP de prueba.
+
+Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error. Los JSON de diagnóstico heredados siguen disponibles.
+
+Se integró `feature/fe1-panel-admin` en la rama móvil. `/admin` contiene el inicio de sesión y `/admin/dashboard` utiliza una ruta protegida. Se incluyen el catálogo administrativo, disponibilidad, descripciones, etiquetas, fotografías y QR del menú. Las etiquetas y fotografías administradas también se presentan en el menú público, que actualiza sus consultas al recibir avisos de cambios y periódicamente mientras la página está visible.
+
+Los estilos del panel mantienen sus componentes y colores mediante `.admin-page`, sin reemplazar el diseño móvil del cliente. La integración no incorpora carrito, filtros, pedidos, pagos ni fidelización. La adaptación responsive no convierte por sí sola el sitio en una PWA instalable: manifiesto, iconos e instalación quedan para una entrega posterior.
+
+Integración verificada el 13 de noviembre de 2026: build correcto, 12/12 pruebas y revisión del catálogo con etiquetas, actualización sin ocultar los productos, formulario de acceso administrativo y redirección de `/admin/dashboard` al login sin sesión. No se probaron escrituras ni un inicio de sesión con credenciales reales.
+
+## Verificación
+
+### Diseño basado en el prototipo móvil
+
+El menú y el detalle siguen la composición de las pantallas móviles en español de `Prototipo - Mitbol.pdf`: cabecera blanca con la marca, fondo claro, acentos oliva y naranja, tarjetas redondeadas y navegación inferior. El logotipo de `public/mitbol-logo.png` se extrajo del prototipo proporcionado.
+
+La portada presenta el catálogo real en una franja horizontal «Nuestra carta» y en una lista compacta con miniatura, descripción, precio y disponibilidad. Esta franja permite explorar todos los productos; no implementa ni simula la historia de destacados. Al abrir un producto se muestra una vista independiente con imagen grande, ficha blanca, presentaciones y opciones adicionales. Las fotografías ausentes conservan un respaldo explícito.
+
+Se verificó el nuevo menú a 320, 390, 440, 768 y 1280 px sin desbordamiento horizontal del documento. Se comprobó el cambio de presentación de la limonada a 500 ml (49.00 MXN), el regreso del foco al producto al cerrar el detalle y el diagnóstico de conexión en línea con su respuesta JSON. La consola del navegador no registró errores durante esta comprobación.
+
+Se mantiene temporalmente «Conexión» en la navegación móvil y de escritorio para la revisión: estado HTTP, consulta de la API, reintento y JSON de diagnóstico. También se conserva el JSON del detalle. No se copiaron del prototipo precios, fotografías de otros productos, declaraciones de IVA, nutrición, alérgenos específicos, categorías ni funciones de fidelización que la API o el alcance actual no respaldan.
+
+### Comandos y comprobaciones
 
 ```powershell
-npm run typecheck
-npm run lint
 npm test
+npm run typecheck
 npm run build
 ```
 
-`npm run preview` sirve el build para inspección local, normalmente en el puerto 4173. Ese origen **no** está autorizado actualmente por CORS; para probar la API en navegador usa el servidor de desarrollo en `http://localhost:5173`. Preview no es un servidor de producción.
+Para revisar la interfaz en DevTools:
 
-## Resultados de verificación · 6 de noviembre de 2026
+1. Usa anchos de 320, 375, 390, 480, 768 y 1280 px, además de orientación horizontal.
+2. Comprueba que el documento no se desplaza horizontalmente y que nombres, precios y estados se leen completos.
+3. Abre un detalle, cambia de presentación y ciérralo: el foco debe regresar al botón del producto.
+4. Consulta productos sin fotografía, agotados, con varias variantes y con complementos si existen en el catálogo compartido.
+5. Comprueba carga, vacío y error con datos controlados o las herramientas de red, sin modificar la base compartida.
+6. Revisa navegación por teclado, zoom al 200 % y la preferencia de movimiento reducido.
 
-- `npm ci`: correcto, 164 paquetes, sin añadir dependencias al proyecto. El entorno tiene Node 22.12.0/npm 10.9.0 y emitió advertencias `EBADENGINE` por ESLint; actualizar Node local según `.node-version` evita esa incompatibilidad declarada. No se ha ejecutado aquí con Node 24.22.1.
-- `npm run typecheck`, `npm run lint`, `npm test` (9/9) y `npm run build`: correctos. El build ejecuta también TypeScript y genera HTML, CSS y JS en `dist/`.
-- Pruebas: URL sin barras duplicadas, solicitudes sin credenciales, contrato real y campos adicionales, nulos y catálogo vacío, respuestas inválidas, HTTP 404/500, JSON inválido, red/posible CORS, timeout y cancelación.
-- Preview local: HTTP 200 para `/`, `/admin/dashboard`, una ruta desconocida y los assets compilados. La inspección HTTP comprueba entrega y fallback local; no ejecuta React ni sustituye una prueba en navegador.
-- Backend público: `/`, `/api/menu` y `/api/menu/1` respondieron HTTP 200. Con `Origin: http://localhost:5173`, los tres devolvieron `Access-Control-Allow-Origin: http://localhost:5173`. El catálogo devolvió tres productos reales y el detalle devolvió `currency` y `product` con sus variantes.
-- La primera consulta tardó unos 34 segundos. La interfaz contempla hasta 90 segundos y permite reintentar. Los fallos de red/CORS nunca muestran un catálogo simulado.
-- No se verificó la página en un navegador automatizado ni el origen HTTPS futuro. Las respuestas públicas confirman acceso al catálogo a través del backend; no equivalen a una inspección directa de la conexión o configuración de Neon.
+El primer arranque del backend puede tardar; el cliente conserva un timeout de 90 segundos y permite reintentar. Un error de red o CORS no se sustituye por productos ficticios.
 
-## Render Dashboard · Static Site
+### Resultado de esta revisión — 12 de noviembre de 2026
 
-Cuando decidas publicar, selecciona **New → Static Site** y conecta el repositorio frontend:
+`npm test`: 9/9 pruebas correctas. `npm run build`: TypeScript y compilación de producción correctos.
 
-| Campo | Valor |
+Se revisó el catálogo real y el detalle en navegador a 320, 375, 390, 480, 667, 768 y 1280 px, sin desbordamiento horizontal del documento. Se inspeccionaron visualmente el catálogo a 390 px y el detalle a 320 px. Los botones y enlaces de navegación medidos tienen al menos 44 px de alto. La consulta de Limonada natural permitió cambiar de 355 ml a 500 ml, mostrar el precio de 49.00 MXN de esta última presentación y volver al botón original al cerrar el detalle.
+
+Se verificó el proxy local consultando el catálogo (3 productos), un detalle y el diagnóstico del backend (HTTP 200). También se confirmó manualmente el funcionamiento desde un teléfono conectado a la red local. Queda pendiente la revisión específica en Safari/iOS y Chrome/Android; no se registró el navegador de la prueba manual.
+
+Los estados vacío y error están cubiertos por las pruebas existentes del cliente y el contrato, pero no se forzaron visualmente en esta revisión. No se modificó la base de datos compartida.
+
+## Despliegue
+
+El build estático se genera en `dist/`. El host debe servir `/index.html` como fallback para las rutas de React Router. Configura `VITE_API_BASE_URL` antes del build y autoriza el origen HTTPS del frontend en CORS del backend. El proxy de desarrollo no forma parte del build estático. El despliegue se coordina con el equipo.
+
+### CI con GitHub Actions
+
+`.github/workflows/ci.yml` ejecuta el check **Pruebas y compilación** al abrir o actualizar un PR hacia `develop`, y en cada push a `develop`. Instala las dependencias con `npm ci`, ejecuta las pruebas y compila con `npm run build`, que también comprueba TypeScript. Utiliza Node **24.22.1**, según `.node-version`, y caché de npm. Las pruebas usan fixtures locales, sin modificar la base compartida ni requerir credenciales.
+
+El flujo de trabajo es: rama de trabajo → PR a `develop` → checks aprobados → revisión y merge → checks del nuevo commit en `develop` → despliegue automático en Render. Un PR por sí solo no publica la rama de trabajo. Después del primer check, un administrador del repositorio puede configurar una regla para `develop` que exija PR y el check **Pruebas y compilación** antes de fusionar; añadir el YAML no activa esa regla por sí solo.
+
+### Primera conexión con Render
+
+`render.yaml` define el sitio estático y su despliegue desde `develop`. Para activarlo una sola vez:
+
+1. Fusiona el PR cuando sus checks estén aprobados.
+2. En Render, selecciona **New → Blueprint**, conecta este repositorio mediante la integración de GitHub y elige la rama `develop`. Usa `render.yaml` y revisa el servicio antes de crearlo. No crees un segundo servicio si el frontend ya existe: configura el existente con los valores de la tabla.
+3. La configuración utiliza **After CI Checks Pass** (`autoDeployTrigger: checksPass`): los siguientes cambios de `develop` se despliegan únicamente después de que sus checks pasen. No se requieren deploy hooks ni secretos de Render en GitHub Actions.
+4. Copia el origen HTTPS real que asigne Render y pide al responsable del backend que lo añada a los orígenes CORS, conservando localhost y los demás orígenes válidos. No uses una URL supuesta.
+5. Comprueba el menú, un detalle, Conexión y la recarga directa de `/admin`. El inicio de sesión y las escrituras administrativas requieren verificar además las cookies y CSRF desde el nuevo dominio.
+
+| Configuración | Valor |
 | --- | --- |
-| Name | `mitbol-frontend` (recomendado; disponibilidad por confirmar) |
-| Repository | `https://github.com/Integracion-Continua-y-Entrega/mitbol-frontend` |
-| Branch | `develop` |
-| Root Directory | Dejar vacío: `package.json` está en la raíz Git |
+| Tipo | Static Site |
+| Rama | `develop` |
+| Root Directory | Vacío, raíz del repositorio |
 | Build Command | `npm ci && npm run build` |
 | Publish Directory | `dist` |
-| Environment Variables | `VITE_API_URL` = `https://mitbol-backend.onrender.com` |
-| Auto-Deploy | `On Commit` para que los merges a `develop` actualicen el sitio de integración |
+| Variable de entorno | `VITE_API_BASE_URL=https://mitbol-backend.onrender.com` |
+| Auto-Deploy | After CI Checks Pass |
+| Rewrite | `/*` → `/index.html` |
 
-Node se selecciona con `.node-version` (**24.22.1**); no es necesario duplicarlo en una variable. Si el servicio ya tiene `NODE_VERSION`, elimínala o iguala su valor a `24.22.1`, porque tiene precedencia. Referencias: [Node en Render](https://render.com/docs/node-version) y [despliegue estático de Vite](https://vite.dev/guide/static-deploy).
+Render toma la versión de Node de `.node-version`. Si el servicio existente define `NODE_VERSION`, debe coincidir con ese archivo o retirarse para evitar que lo sobrescriba. No se utiliza `npm run dev`, `npm run preview` ni un Start Command para servir el sitio estático en producción.
 
-No necesitas Start Command, puerto de servidor ni Web Service para este frontend estático. El primer despliegue lo inicias tú después de revisar y subir los cambios.
+La conexión inicial del servicio y la configuración de CORS son pasos externos al repositorio. Los archivos anteriores preparan CI/CD; el despliegue queda operativo cuando el servicio de Render esté conectado y se confirme su URL.
 
-En **Redirects/Rewrites**, añade esta regla para `BrowserRouter`:
-
-| Source | Destination | Action |
-| --- | --- | --- |
-| `/*` | `/index.html` | `Rewrite` |
-
-Esto permite recargar rutas como `/admin/dashboard` y dejar que React muestre su 404. No activa administración ni autenticación. Render conserva la entrega de archivos reales como JS/CSS. Véase [rewrites en Render](https://render.com/docs/redirects-rewrites).
-
-## CORS después del primer despliegue
-
-La URL del frontend todavía **no está confirmada**. Copia el origen HTTPS asignado por Render: esquema y host (y puerto si existiera), sin ruta ni barra final. No uses la URL de GitHub ni la del backend como origen del frontend.
-
-Se consultaron únicamente, en lectura, `app/core/config.py` y el ejemplo público de configuración del backend local para confirmar el formato: `CORS_ORIGINS` es una **lista JSON**, no una lista separada por comas.
-
-En el servicio **backend**, cuando tú apliques la configuración, conserva localhost y añade el origen real. Plantilla que debes sustituir antes de guardar:
-
-```dotenv
-CORS_ORIGINS=["http://localhost:5173","https://HOST-REAL-DEL-FRONTEND.onrender.com"]
-```
-
-En Render introduce `CORS_ORIGINS` como nombre y solo el array JSON como valor, sin comillas exteriores. **Solo si Render confirma exactamente** `https://mitbol-frontend.onrender.com`, el valor sería:
-
-```json
-["http://localhost:5173","https://mitbol-frontend.onrender.com"]
-```
-
-Guarda y vuelve a desplegar el backend para que recargue la variable cuando estés listo. Este trabajo no modificó el backend, Render ni Neon. Cambiar CORS solo permite la comunicación del navegador: no habilita autenticación, permisos administrativos ni migraciones.
-
-## Revisión y Git · ejecutar tú al aprobar los cambios
-
-Revisa los archivos nuevos además del diff; `git diff` no incluye el contenido de archivos sin seguimiento. Comprueba que no se incluyan `.env.local`, `node_modules` ni `dist`. No mezcles cambios de otros integrantes.
-
-```powershell
-git branch --show-current
-git status --short
-git diff
-git fetch origin
-git log --oneline --left-right develop...origin/develop
-```
-
-La rama actual debe ser `develop`. Si el remoto avanzó desde la revisión, integra sus cambios antes del push; no uses `--force`. Los siguientes comandos seleccionan únicamente los archivos de esta preparación:
-
-```powershell
-git rm --cached .env
-git add .env.example .gitignore .node-version README.md index.html package.json package-lock.json src/App.tsx src/components/ProductCard.tsx src/pages/public/ConnectionPage.tsx src/pages/public/connection.css src/services/api.ts src/services/config.ts src/services/menu.ts src/services/useApi.ts tests/api.test.ts
-git diff --cached --check
-git diff --cached
-git commit -m "feat: preparar verificacion publica y despliegue en Render"
-git pull --rebase origin develop
-npm run lint
-npm test
-npm run build
-git push -u origin develop
-```
-
-Si aparecen conflictos, resuélvelos conservando el trabajo del equipo y repite las validaciones antes de subir. `main` queda como rama estable; los integrantes pueden partir de `develop` con `git switch -c feature/nombre-de-historia`. No se ejecutaron los comandos de commit/push anteriores.
-
-## Comprobación después de publicar
-
-1. Confirma que el log de Render usa la versión de Node fijada y termina con build correcto y publicación de `dist`.
-2. Copia la URL HTTPS real y aplica tú el ajuste de CORS descrito arriba; después abre el frontend y pulsa «Volver a comprobar» y «Actualizar catálogo».
-3. En DevTools → Network → Fetch/XHR, verifica `GET /` y `GET /api/menu` al backend, respuestas HTTP 200 y `Access-Control-Allow-Origin` igual al origen exacto del frontend. No basta con abrir la API directamente en otra pestaña.
-4. Pulsa «Consultar detalle». Comprueba una nueva petición `/api/menu/{product_id}`, su JSON y la presentación del producto. Revisa nombres, precios, variantes y disponibilidad contra la respuesta recibida.
-5. Si la consola muestra un bloqueo CORS, compara los orígenes literalmente y corrige la lista del backend; el código de la página no puede corregir CORS. Una petición puede aparecer con HTTP 200 y seguir bloqueada para JavaScript por falta del encabezado permitido.
-6. Prueba el modo Offline de DevTools y los botones de reintento; restaura la red. La página debe mostrar errores, nunca productos simulados.
-7. Revisa el ancho móvil y recarga directamente `/admin/dashboard` y una ruta desconocida. Deben cargar el placeholder conservado y la página 404 de React respectivamente, gracias al rewrite.
-
-Pendientes reales: actualización de Node local, revisión y subida manual de cambios, creación del Static Site por el usuario, confirmación del origen HTTPS, ajuste posterior de CORS y prueba final en navegador. La autenticación y sus migraciones quedan fuera de este despliegue público.
+Referencias: [GitHub Actions para Node.js](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs), [Blueprints de Render](https://render.com/docs/blueprint-spec), [desplegar después de CI](https://render.com/docs/deploys#integrating-with-ci) y [versión de Node en Render](https://render.com/docs/node-version).
 
 ## Equipo
 
