@@ -1,240 +1,83 @@
 import { useEffect, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
 import { API_URL } from '../../services/config'
-import {
-  formatPrice,
-  formatRepresentativePrice,
-  getRepresentativeImage,
-  normalizeVariantModifiers,
-  parseHealth,
-  parseMenu,
-  parseProduct,
-} from '../../services/menu'
+import { formatPrice, formatRepresentativePrice, getRepresentativeImage, normalizeVariantModifiers, parseHealth, parseMenu, parseProduct } from '../../services/menu'
 import type { MenuProduct } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import './connection.css'
 
+function Icon({ name }: { name: 'menu' | 'connection' | 'back' | 'leaf' | 'refresh' }) {
+  const paths = {
+    menu: 'M5 3v7m3-7v7m3-7v7M5 7h6m-3 3v11M19 3c-3 3-4 7-4 10h4m0-10v18',
+    connection: 'M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0V8Zm6 9v4',
+    back: 'm14 5-7 7 7 7M7 12h14',
+    leaf: 'M12 21c-8-2-10-8-9-13 5 0 8 2 9 6m0 7c8-2 10-8 9-13-5 0-8 2-9 6m0 7V3m0 0c-3 3-4 7 0 11 4-4 3-8 0-11Z',
+    refresh: 'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3',
+  }
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
+}
+
 function MitbolLogo() {
-  return (
-    <div className="brand-logo" aria-label="mitbol Cocina Saludable">
-      <svg className="brand-badge-svg" viewBox="0 0 120 120" role="img" aria-hidden="true">
-        <circle cx="60" cy="60" r="58" fill="#627D32" />
-        <path d="M77 35C72 32 69 25 72 20C77 21 80 28 77 35Z" fill="#4D6626" />
-        <path d="M80 35C85 32 88 25 85 20C80 21 77 28 80 35Z" fill="#A3E635" />
-        <text x="14" y="68" fill="#FFFFFF" fontFamily="Plus Jakarta Sans, sans-serif" fontWeight="800" fontSize="29" letterSpacing="-0.5">
-          mitb
-        </text>
-        <circle cx="42.5" cy="44" r="3.4" fill="#FBBF24" />
-        <circle cx="79" cy="59" r="11.5" fill="#F97316" />
-        <circle cx="79" cy="59" r="9.3" fill="#FDE68A" />
-        <circle cx="79" cy="59" r="8" fill="#F59E0B" />
-        <g stroke="#FEF3C7" strokeWidth="1.1">
-          <line x1="79" y1="50" x2="79" y2="68" />
-          <line x1="70" y1="59" x2="88" y2="59" />
-          <line x1="72.5" y1="52.5" x2="85.5" y2="65.5" />
-          <line x1="85.5" y1="52.5" x2="72.5" y2="65.5" />
-        </g>
-        <text x="93" y="68" fill="#FFFFFF" fontFamily="Plus Jakarta Sans, sans-serif" fontWeight="800" fontSize="29">
-          l
-        </text>
-        <text x="60" y="86" textAnchor="middle" fill="#ECF3E0" fontFamily="Plus Jakarta Sans, sans-serif" fontWeight="600" fontSize="6.8" letterSpacing="2.4">
-          COCINA SALUDABLE
-        </text>
-      </svg>
-      <div className="brand-text">
-        <span className="brand-title">
-          mitb<span className="brand-o">o</span>l
-        </span>
-        <span className="brand-subtitle">COCINA SALUDABLE</span>
-      </div>
-    </div>
-  )
+  return <span className="brand-logo"><img src="/mitbol-logo.png" alt="" width="48" height="48" /><span className="brand-text"><span className="brand-title">mitbol</span><span className="brand-subtitle">COCINA SALUDABLE</span></span></span>
 }
 
 function Loading() {
-  return (
-    <div className="notice loading-notice" role="status">
-      <div className="brand-bars" aria-hidden="true">
-        <span className="bar bar-green" />
-        <span className="bar bar-orange" />
-        <span className="bar bar-lime" />
-      </div>
-      <p>Consultando el menú saludable… El primer inicio en Render puede tardar hasta 90 segundos.</p>
-    </div>
-  )
+  return <div className="notice loading-notice" role="status"><span className="loading-dot" aria-hidden="true" /><p>Consultando el menú… El primer inicio de Render puede tardar hasta 90 segundos.</p></div>
 }
 
 function Failure({ message, retry }: { message: string; retry: () => void }) {
-  return (
-    <div className="notice error" role="alert">
-      <p>{message}</p>
-      <button className="btn-inverted" onClick={retry}>Reintentar</button>
-    </div>
-  )
+  return <div className="notice error" role="alert"><p>{message}</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>
 }
 
 function BackendStatus() {
   const { result, retry } = useApi('/', parseHealth)
   return (
     <section className="backend panel" aria-labelledby="backend-heading" aria-live="polite">
-      <div className="backend-header">
-        <div className="backend-title-group">
-          <span className="eyebrow">Estado del servicio</span>
-          <h2 id="backend-heading">Conexión con cocina</h2>
-          <code>GET /</code>
-        </div>
-        <div className="backend-actions">
-          {result.status === 'success' && <span className="status-ok">● En línea · HTTP 2xx</span>}
-          <button className="btn-outlined" onClick={retry}>Volver a comprobar</button>
-        </div>
-      </div>
-      <div className="backend-result">
-        {result.status === 'loading' && <Loading />}
-        {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-        {result.status === 'success' && (
-          result.data === null ? (
-            <p className="muted">El backend respondió sin contenido.</p>
-          ) : (
-            <details className="json-details">
-              <summary>Ver diagnóstico técnico del servidor</summary>
-              <pre>{JSON.stringify(result.data, null, 2)}</pre>
-            </details>
-          )
-        )}
-      </div>
+      <p className="eyebrow">Estado del servicio</p>
+      <div className="section-heading"><h1 id="backend-heading" tabIndex={-1}>Conexión con cocina</h1><span className="endpoint">GET /</span></div>
+      <p className="muted">Comprueba la comunicación con la API de MITBOL.</p>
+      <div className="backend-actions">{result.status === 'success' && <span className="status-ok">● En línea · HTTP 2xx</span>}<button className="btn-outlined" onClick={retry}><Icon name="refresh" />Volver a comprobar</button></div>
+      {result.status === 'loading' && <Loading />}
+      {result.status === 'error' && <Failure message={result.message} retry={retry} />}
+      {result.status === 'success' && (result.data === null ? <p className="muted">El backend respondió sin contenido.</p> : <details className="json-details"><summary>Ver diagnóstico técnico del servidor</summary><pre>{JSON.stringify(result.data, null, 2)}</pre></details>)}
+      <p className="api-origin">API consultada: {API_URL}</p>
     </section>
   )
 }
 
 function ProductDetailContent({ product, currency }: { product: MenuProduct; currency: string }) {
-  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
-    product.variants.length > 0 ? product.variants[0].product_variant_id : null
-  )
-  const [imgError, setImgError] = useState(false)
-
-  const selectedVariant = product.variants.find((v) => v.product_variant_id === selectedVariantId)
-    ?? product.variants[0]
-    ?? null
-
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(product.variants[0]?.product_variant_id ?? null)
+  const [failedImage, setFailedImage] = useState<string | null>(null)
+  const selectedVariant = product.variants.find(v => v.product_variant_id === selectedVariantId) ?? product.variants[0] ?? null
   const imageUrl = getRepresentativeImage(product, selectedVariant)
   const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers)
   const isProductAvailable = product.is_active && product.is_available
 
   return (
     <div className="product-detail-card">
-      <div className="detail-header-grid">
-        <div className="detail-media">
-          {imageUrl && !imgError ? (
-            <img
-              src={imageUrl}
-              alt={selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name}
-              className="detail-image"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="product-placeholder detail-placeholder" aria-label="Sin fotografía disponible">
-              <span className="placeholder-brand">mitbol</span>
-              <span className="placeholder-text">Sin fotografía disponible</span>
-            </div>
-          )}
+      <div className="detail-media">{imageUrl && failedImage !== imageUrl ? <img src={imageUrl} alt={selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name} className="detail-image" onError={() => setFailedImage(imageUrl)} /> : <div className="product-placeholder detail-placeholder"><img src="/mitbol-logo.png" alt="" /><span>Sin fotografía disponible</span></div>}</div>
+      <div className="detail-sheet">
+        <div className="detail-title-row">
+          <div><p className="eyebrow">De nuestra cocina</p><h2>{product.name}</h2></div>
+          <p className="price detail-price">{selectedVariant ? formatPrice(selectedVariant.price, currency) : formatRepresentativePrice(product, currency)}</p>
         </div>
-
-        <div className="detail-summary">
-          <div className="product-top">
-            <span className={`availability ${isProductAvailable ? 'available' : 'sold-out'}`}>
-              {!product.is_active ? 'Producto inactivo' : product.is_available ? 'Disponible' : 'Agotado'}
-            </span>
-          </div>
-          <h3>{product.name}</h3>
-          <p className="description">{product.description?.trim() || 'Descripción no disponible.'}</p>
-
-          <p className="price detail-price">
-            {selectedVariant
-              ? formatPrice(selectedVariant.price, currency)
-              : formatRepresentativePrice(product, currency)}
-          </p>
-
-          {!isProductAvailable && (
-            <p className="notice sold-out-banner" role="status">
-              Este platillo se encuentra temporalmente agotado y no está disponible para nuevas solicitudes.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="detail-section">
-        <h4>Presentaciones disponibles ({product.variants.length})</h4>
-        {product.variants.length > 0 ? (
-          <div className="variant-selector" role="group" aria-label="Seleccionar presentación">
-            {product.variants.map((variant) => {
-              const isSelected = selectedVariant?.product_variant_id === variant.product_variant_id
-              const variantAvailable = isProductAvailable && variant.is_available
-              return (
-                <button
-                  key={variant.product_variant_id}
-                  type="button"
-                  className={`variant-option ${isSelected ? 'selected' : ''} ${!variantAvailable ? 'unavailable' : ''}`}
-                  aria-pressed={isSelected}
-                  onClick={() => {
-                    setSelectedVariantId(variant.product_variant_id)
-                    setImgError(false)
-                  }}
-                >
-                  <span className="variant-option-name">{variant.name}</span>
-                  <span className="variant-option-price">{formatPrice(variant.price, currency)}</span>
-                  <small className="variant-option-status">
-                    {variantAvailable ? 'Disponible' : 'Agotado'}
-                  </small>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="muted">Este producto no tiene variantes registradas.</p>
-        )}
-      </div>
-
-      <div className="detail-section">
-        <h4>
-          Complementos y modificadores
-          {selectedVariant && product.variants.length > 1 ? ` · ${selectedVariant.name}` : ''}
-        </h4>
-        {modifierGroups.length > 0 ? (
-          <div className="modifiers-list">
-            {modifierGroups.map((group) => (
-              <div key={group.id} className="modifier-group">
-                <div className="modifier-group-header">
-                  <strong>{group.name}</strong>
-                  {!group.isAvailable && <span className="availability sold-out">No disponible</span>}
-                </div>
-                {group.complements.length > 0 ? (
-                  <ul className="variants">
-                    {group.complements.map((comp) => {
-                      const compAvailable = group.isAvailable && comp.isAvailable
-                      return (
-                        <li key={comp.id}>
-                          <span>
-                            {comp.name}
-                            <small>{compAvailable ? 'Disponible' : 'No disponible'}</small>
-                          </span>
-                          <span className="complement-price">
-                            {comp.price && Number(comp.price) > 0
-                              ? `+ ${formatPrice(comp.price, currency)}`
-                              : 'Sin costo extra'}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : (
-                  <p className="muted">Sin opciones registradas en este grupo.</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="muted">Esta presentación no cuenta con complementos o modificadores adicionales.</p>
-        )}
+        <span className={`availability ${isProductAvailable ? 'available' : 'sold-out'}`}>{!product.is_active ? 'Producto inactivo' : product.is_available ? 'Disponible' : 'Agotado'}</span>
+        <p className="detail-description">{product.description?.trim() || 'Descripción no disponible.'}</p>
+        {!isProductAvailable && <p className="notice sold-out-banner" role="status">Este producto no está disponible actualmente. Puedes consultar sus presentaciones y complementos.</p>}
+        <section className="detail-section" aria-labelledby="variants-heading">
+          <h3 id="variants-heading">Presentaciones <span className="count-badge">{product.variants.length}</span></h3>
+          {product.variants.length > 0 ? <div className="variant-selector" role="group" aria-label="Seleccionar presentación">{product.variants.map(variant => {
+            const isSelected = selectedVariant?.product_variant_id === variant.product_variant_id
+            const available = isProductAvailable && variant.is_available
+            return <button key={variant.product_variant_id} type="button" className={`variant-option ${isSelected ? 'selected' : ''}`} aria-pressed={isSelected} onClick={() => setSelectedVariantId(variant.product_variant_id)}><span className="variant-option-name">{variant.name}</span><span className="variant-option-price">{formatPrice(variant.price, currency)}</span><small className={available ? 'variant-option-status' : 'variant-option-status unavailable'}>{available ? 'Disponible' : 'Agotado'}</small></button>
+          })}</div> : <p className="muted">Este producto no tiene variantes registradas.</p>}
+        </section>
+        <section className="detail-section" aria-labelledby="modifiers-heading">
+          <div className="options-heading"><h3 id="modifiers-heading">Opciones adicionales</h3><span>Consulta a tu mesero</span></div>
+          {selectedVariant && <p className="muted variant-context">Complementos de {selectedVariant.name}</p>}
+          {modifierGroups.length > 0 ? <div className="modifiers-list">{modifierGroups.map(group => <div key={group.id} className="modifier-group"><div className="modifier-group-header"><h4>{group.name}</h4>{!group.isAvailable && <span className="availability sold-out">No disponible</span>}</div>{group.complements.length > 0 ? <ul className="complements">{group.complements.map(comp => <li key={comp.id}><span><strong>{comp.name}</strong><small className={!group.isAvailable || !comp.isAvailable ? 'unavailable' : ''}>{group.isAvailable && comp.isAvailable ? 'Disponible' : 'No disponible'}</small></span><span className="complement-price">{comp.price === null ? 'Precio no informado' : Number(comp.price) > 0 ? `+ ${formatPrice(comp.price, currency)}` : 'Sin costo extra'}</span></li>)}</ul> : <p className="muted">Sin opciones registradas en este grupo.</p>}</div>)}</div> : <p className="muted">Esta presentación no cuenta con complementos o modificadores adicionales.</p>}
+        </section>
+        <p className="detail-service-note">Para ordenar o consultar alérgenos, comunícate con nuestro personal de sala.</p>
       </div>
     </div>
   )
@@ -243,36 +86,18 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
 function ProductDetail({ id, close }: { id: number; close: () => void }) {
   const { result, retry } = useApi(`/api/menu/${encodeURIComponent(id)}`, parseProduct)
   const headingRef = useRef<HTMLHeadingElement>(null)
-
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true })
-    document.getElementById('product-detail')?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-      block: 'start',
-    })
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
-
   return (
-    <section id="product-detail" className="panel detail" aria-labelledby="detail-heading" aria-live="polite">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Consulta individual</p>
-          <h2 id="detail-heading" ref={headingRef} tabIndex={-1}>Detalle del platillo #{id}</h2>
-        </div>
-        <button className="btn-secondary" onClick={close}>Cerrar detalle ✕</button>
-      </div>
+    <section id="product-detail" className="detail" aria-labelledby="detail-heading" aria-live="polite">
+      <h1 id="detail-heading" ref={headingRef} tabIndex={-1} className="sr-only">Detalle del producto</h1>
       {result.status === 'loading' && <Loading />}
       {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-      {result.status === 'success' && (result.data?.product ? <>
-        <ProductDetailContent product={result.data.product} currency={result.data.currency} />
-        <div className="detail-footer-actions">
-          <details className="json-details">
-            <summary>Ver respuesta JSON (`GET /api/menu/{id}`)</summary>
-            <pre>{JSON.stringify(result.data, null, 2)}</pre>
-          </details>
-          <button className="btn-outlined" onClick={retry}>Actualizar detalle</button>
-        </div>
-      </> : <div className="notice"><p>El endpoint respondió sin datos del producto.</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>)}
+      {result.status === 'success' && (result.data?.product ? <ProductDetailContent key={result.data.product.product_id} product={result.data.product} currency={result.data.currency} /> : <div className="notice"><p>No se encontró información de este producto.</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>)}
+      <div className="detail-footer-actions"><button className="btn-outlined" onClick={close}><Icon name="back" />Volver al menú</button><button className="btn-outlined" onClick={retry}><Icon name="refresh" />Actualizar detalle</button></div>
+      {result.status === 'success' && result.data?.product && <details className="json-details detail-diagnostic"><summary>Ver respuesta JSON del detalle</summary><pre>{JSON.stringify(result.data, null, 2)}</pre></details>}
     </section>
   )
 }
@@ -280,108 +105,52 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
 export default function ConnectionPage() {
   const { result, retry } = useApi('/api/menu', parseMenu)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [view, setView] = useState<'menu' | 'connection'>('menu')
   const selectedButtonRef = useRef<HTMLButtonElement | null>(null)
+  const closeDetail = () => {
+    setSelectedId(null)
+    requestAnimationFrame(() => selectedButtonRef.current?.focus())
+  }
+  const selectProduct = (id: number, button: HTMLButtonElement) => {
+    selectedButtonRef.current = button
+    setSelectedId(id)
+  }
+  const changeView = (next: 'menu' | 'connection') => {
+    setView(next)
+    setSelectedId(null)
+    requestAnimationFrame(() => {
+      document.getElementById(next === 'menu' ? 'catalog-heading' : 'backend-heading')?.focus({ preventScroll: true })
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    })
+  }
+  const navigation = <>{(['menu', 'connection'] as const).map(item => <button key={item} type="button" className={`nav-item ${view === item ? 'active' : ''}`} aria-current={view === item ? 'page' : undefined} onClick={() => changeView(item)}><Icon name={item} /><span>{item === 'menu' ? 'Menú' : 'Conexión'}</span></button>)}</>
 
   return (
-    <div className="connection-page">
-      <a className="skip-link" href="#catalog-heading">Ir al menú</a>
-      <header className="site-header">
-        <a className="brand" href="/">
-          <MitbolLogo />
-        </a>
-        <nav className="pill-nav" aria-label="Accesos rápidos">
-          <a href="#catalog-heading" className="pill-nav-item active">Menú</a>
-          <a href="#backend-heading" className="pill-nav-item">Conexión</a>
-        </nav>
-      </header>
-
-      <main>
-        <section className="welcome-hero">
-          <div className="welcome-copy">
-            <span className="eyebrow">Menú Digital · Cocina Saludable</span>
-            <h1>Ingredientes reales,<br />sabor que te hace bien.</h1>
-            <p>
-              Explora nuestros platillos saludables, conoce sus distintas presentaciones
-              y personalízalos con los complementos disponibles.
-            </p>
-            <div className="hero-actions">
-              <a href="#catalog-heading" className="btn-primary">Explorar platillos</a>
-              <button type="button" className="btn-secondary" onClick={retry}>Actualizar menú</button>
-            </div>
-          </div>
-          <div className="welcome-card" aria-hidden="true">
-            <div className="brand-bars">
-              <span className="bar bar-green" />
-              <span className="bar bar-orange" />
-              <span className="bar bar-lime" />
-            </div>
-            <p className="welcome-card-title">Frescura al momento</p>
-            <p className="welcome-card-sub">Catálogo sincronizado directamente con nuestra cocina.</p>
-          </div>
-        </section>
-
-        <section className="catalog" aria-labelledby="catalog-heading" aria-live="polite">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Desde nuestra cocina</p>
-              <h2 id="catalog-heading" tabIndex={-1}>Nuestro Menú</h2>
-            </div>
-            <button className="btn-outlined" onClick={retry}>↻ Actualizar catálogo</button>
-          </div>
-
-          {result.status === 'loading' && <Loading />}
-          {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-          {result.status === 'success' && (result.data && result.data.products.length > 0 ? <>
-            <p className="catalog-meta">
-              Mostrando <strong>{result.data.products.length}</strong> {result.data.products.length === 1 ? 'platillo' : 'platillos'} · Moneda: <strong>{result.data.currency}</strong>
-            </p>
-            <div className="product-grid">
-              {result.data.products.map((product) => (
-                <ProductCard
-                  key={product.product_id}
-                  product={product}
-                  currency={result.data!.currency}
-                  selected={selectedId === product.product_id}
-                  onSelect={(button) => {
-                    selectedButtonRef.current = button
-                    if (selectedId === product.product_id) {
-                      document.getElementById('detail-heading')?.focus({ preventScroll: true })
-                      document.getElementById('product-detail')?.scrollIntoView({
-                        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-                      })
-                    }
-                    setSelectedId(product.product_id)
-                  }}
-                />
-              ))}
-            </div>
-          </> : (
-            <div className="notice">
-              <p>El servidor respondió correctamente, pero aún no existen productos publicados en el menú.</p>
-              <button className="btn-primary" onClick={retry}>Reintentar</button>
-            </div>
-          ))}
-        </section>
-
-        {selectedId !== null ? (
-          <ProductDetail key={selectedId} id={selectedId} close={() => {
-            setSelectedId(null)
-            selectedButtonRef.current?.focus()
-          }} />
-        ) : (
-          <p className="detail-hint">
-            Selecciona <strong>«Consultar detalle»</strong> en cualquier platillo para revisar sus presentaciones y complementos.
-          </p>
-        )}
-
-        <BackendStatus />
+    <div className={`connection-page ${selectedId !== null ? 'detail-open' : ''}`}>
+      <a className="skip-link" href={view === 'connection' ? '#backend-heading' : selectedId !== null ? '#detail-heading' : '#catalog-heading'}>Ir al contenido</a>
+      <header className="site-header"><div className="header-inner">{selectedId !== null && <button className="back-button" aria-label="Cerrar detalle y volver al menú" onClick={closeDetail}><Icon name="back" /></button>}<a className="brand" href="/" aria-label="mitbol · Cocina Saludable"><MitbolLogo /></a><nav className="desktop-nav" aria-label="Navegación principal">{navigation}</nav><span className="header-caption">Carta digital</span></div></header>
+      <main className={selectedId !== null ? 'main-content showing-detail' : 'main-content'}>
+        <div hidden={view !== 'menu' || selectedId !== null}>
+          <div className="menu-intro"><Icon name="leaf" /><span>Conoce nuestros platillos<br />y sus presentaciones.</span><span className="intro-label">CARTA<br />DIGITAL</span></div>
+          <section className="catalog" aria-labelledby="catalog-heading" aria-live="polite">
+            <div className="section-heading showcase-heading"><h1 id="catalog-heading" tabIndex={-1}>Nuestra carta <span aria-hidden="true" className="orange-star">✦</span></h1><a href="#menu-list">Ver todos <span aria-hidden="true">›</span></a></div>
+            {result.status === 'loading' && <Loading />}
+            {result.status === 'error' && <Failure message={result.message} retry={retry} />}
+            {result.status === 'success' && (result.data && result.data.products.length > 0 ? <>
+              <div className="spotlight-track" role="group" aria-label="Explorar productos">{result.data.products.map(product => <ProductCard key={product.product_id} product={product} currency={result.data!.currency} spotlight onSelect={button => selectProduct(product.product_id, button)} />)}</div>
+              <div className="catalog-toolbar"><a className="catalog-chip" href="#menu-list">Todos los productos</a><button className="refresh-button" onClick={retry} aria-label="Actualizar catálogo"><Icon name="refresh" />Actualizar</button></div>
+              <div id="menu-list" className="section-heading menu-list-heading"><h2>Nuestro menú</h2><span className="count-badge">{result.data.products.length} {result.data.products.length === 1 ? 'opción' : 'opciones'}</span></div>
+              <div className="product-grid">{result.data.products.map(product => <ProductCard key={product.product_id} product={product} currency={result.data!.currency} onSelect={button => selectProduct(product.product_id, button)} />)}</div>
+              <p className="catalog-meta">Precios en {result.data.currency} · Consulta cada presentación en el detalle.</p>
+            </> : <div className="notice"><p>Aún no existen productos publicados en el menú.</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>)}
+          </section>
+          <aside className="menu-note"><Icon name="leaf" /><p>Si tienes alguna intolerancia o alergia alimentaria, consulta con el personal de sala.</p></aside>
+        </div>
+        {view === 'menu' && selectedId !== null && <ProductDetail key={selectedId} id={selectedId} close={closeDetail} />}
+        <div hidden={view !== 'connection'}><BackendStatus /></div>
       </main>
-
-      <footer className="site-footer">
-        <span><strong>mitbol</strong> · Cocina Saludable</span>
-        <span className="api-origin">Conectado a: {API_URL}</span>
-        <span>Menú Digital v2.1</span>
-      </footer>
+      <footer className="site-footer"><strong>mitbol · Cocina Saludable</strong><span>Menú digital · Consulta a nuestro personal para ordenar.</span></footer>
+      <nav className="mobile-nav" aria-label="Navegación móvil">{navigation}</nav>
     </div>
   )
 }

@@ -48,6 +48,18 @@ Las rutas `/admin` y `/admin/dashboard` siguen siendo placeholders. Esta entrega
 
 ## Verificación
 
+### Diseño basado en el prototipo móvil
+
+El menú y el detalle siguen la composición de las pantallas móviles en español de `Prototipo - Mitbol.pdf`: cabecera blanca con la marca, fondo claro, acentos oliva y naranja, tarjetas redondeadas y navegación inferior. El logotipo de `public/mitbol-logo.png` se extrajo del prototipo proporcionado.
+
+La portada presenta el catálogo real en una franja horizontal «Nuestra carta» y en una lista compacta con miniatura, descripción, precio y disponibilidad. Esta franja permite explorar todos los productos; no implementa ni simula la historia de destacados. Al abrir un producto se muestra una vista independiente con imagen grande, ficha blanca, presentaciones y opciones adicionales. Las fotografías ausentes conservan un respaldo explícito.
+
+Se verificó el nuevo menú a 320, 390, 440, 768 y 1280 px sin desbordamiento horizontal del documento. Se comprobó el cambio de presentación de la limonada a 500 ml (49.00 MXN), el regreso del foco al producto al cerrar el detalle y el diagnóstico de conexión en línea con su respuesta JSON. La consola del navegador no registró errores durante esta comprobación.
+
+Se mantiene temporalmente «Conexión» en la navegación móvil y de escritorio para la revisión: estado HTTP, consulta de la API, reintento y JSON de diagnóstico. También se conserva el JSON del detalle. No se copiaron del prototipo precios, fotografías de otros productos, declaraciones de IVA, nutrición, alérgenos específicos, categorías ni funciones de fidelización que la API o el alcance actual no respaldan.
+
+### Comandos y comprobaciones
+
 ```powershell
 npm test
 npm run typecheck
