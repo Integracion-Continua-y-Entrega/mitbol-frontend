@@ -216,3 +216,9 @@ pre { max-width: 100%; overflow-x: auto; overflow-wrap: normal; padding: 18px; b
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* Etiquetas compartidas entre el catálogo y la administración. */
+.public-tags-row, .variant-mini-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0; }
+.public-tag-pill, .variant-mini-tag { display: inline-flex; font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 99px; background: var(--mitbol-primary-soft); color: var(--mitbol-primary-dark); border: 1px solid #627d3230; }
+.spotlight-card .public-tags-row { margin: 0; }
+.detail-sheet > .public-tags-row { margin-top: 14px; }

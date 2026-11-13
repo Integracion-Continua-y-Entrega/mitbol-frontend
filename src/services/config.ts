@@ -1,7 +1,7 @@
 import { createApiClient } from './api'
 
 // Conserva compatibilidad con la variable utilizada en la rama original.
-const backendUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+export const BACKEND_URL = import.meta.env.VITE_API_BASE_URL?.trim()
   || import.meta.env.VITE_API_URL?.trim()
   || 'https://mitbol-backend.onrender.com'
 
@@ -9,7 +9,7 @@ const backendUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 // Vite reenvía /backend/api/menu a Render; el build conserva la URL pública.
 export const API_URL = import.meta.env.DEV
   ? new URL('/backend', window.location.origin).href
-  : backendUrl
+  : BACKEND_URL
 
 // La configuración se valida al consultar para poder mostrar sus errores en la página.
 export function requestApi(path: string, signal?: AbortSignal): Promise<unknown> {

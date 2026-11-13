@@ -30,7 +30,7 @@ Conecta el teléfono y la computadora a la misma red Wi-Fi y ejecuta `npm run de
 
 El proxy solo existe con el servidor de desarrollo. El build de producción consulta directamente la URL configurada y requiere que el backend permita el origen publicado. La autenticación y las escrituras administrativas requieren una validación independiente de cookies y CSRF.
 
-El frontend consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnóstico `GET /`. Las consultas públicas actuales no utilizan sesión. Para futuras operaciones administrativas, el backend requiere cookies con `credentials: "include"` y protección CSRF en escrituras; el cliente público actual no implementa esas operaciones.
+El menú consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnóstico `GET /` sin sesión. El panel administrativo conserva sus solicitudes directas a Render con `credentials: "include"` y protección CSRF en escrituras. Para acceder al panel en desarrollo, utiliza `http://localhost:5173/admin`, un origen autorizado por el backend. El proxy de la red local se utiliza para el menú público; el inicio de sesión administrativo desde la IP del teléfono requiere validar CORS y cookies por separado.
 
 ## Alcance de los ajustes móviles
 
@@ -44,7 +44,11 @@ El frontend consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnós
 
 Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error. Los JSON de diagnóstico heredados siguen disponibles.
 
-Las rutas `/admin` y `/admin/dashboard` siguen siendo placeholders. Esta entrega no implementa el dashboard, login, carrito, filtros, pedidos, pagos, fidelización ni otras historias del Backlog. La adaptación responsive no convierte por sí sola el sitio en una PWA instalable: manifiesto, iconos e instalación quedan para una entrega posterior.
+Se integró `feature/fe1-panel-admin` en la rama móvil. `/admin` contiene el inicio de sesión y `/admin/dashboard` utiliza una ruta protegida. Se incluyen el catálogo administrativo, disponibilidad, descripciones, etiquetas, fotografías y QR del menú. Las etiquetas y fotografías administradas también se presentan en el menú público, que actualiza sus consultas al recibir avisos de cambios y periódicamente mientras la página está visible.
+
+Los estilos del panel mantienen sus componentes y colores mediante `.admin-page`, sin reemplazar el diseño móvil del cliente. La integración no incorpora carrito, filtros, pedidos, pagos ni fidelización. La adaptación responsive no convierte por sí sola el sitio en una PWA instalable: manifiesto, iconos e instalación quedan para una entrega posterior.
+
+Integración verificada el 13 de noviembre de 2026: build correcto, 12/12 pruebas y revisión del catálogo con etiquetas, actualización sin ocultar los productos, formulario de acceso administrativo y redirección de `/admin/dashboard` al login sin sesión. No se probaron escrituras ni un inicio de sesión con credenciales reales.
 
 ## Verificación
 

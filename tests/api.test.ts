@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { parseMenu, parseProduct } from '../src/services/menu.ts'
+import { getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct } from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -10,6 +10,24 @@ const fixture = {
   price_min: '12.50', price_max: '12.50', has_price_range: false,
   variants: [{ product_variant_id: 8, name: 'Variante de prueba', price: '12.50', is_available: false, can_order: false, image_url: null, tags: [] }],
 }
+
+test('conserva etiquetas administradas y elimina nombres vacíos o duplicados', () => {
+  const item = { ...fixture, variants: [{ ...fixture.variants[0], tags: [' Vegano ', { name: 'Vegano' }, { name: 'Sin gluten' }, '', null] }] }
+  assert.deepEqual(getVariantTagNames(item.variants[0]), ['Vegano', 'Sin gluten'])
+  assert.deepEqual(getProductTagNames(item), ['Vegano', 'Sin gluten'])
+})
+
+test('resuelve fotografías relativas del administrador y conserva URLs completas', () => {
+  assert.equal(getRepresentativeImage({ ...fixture, image_url: '/uploads/menu.webp' }), 'https://mitbol-backend.onrender.com/uploads/menu.webp')
+  assert.equal(getRepresentativeImage({ ...fixture, image_url: 'https://images.example.test/menu.webp' }), 'https://images.example.test/menu.webp')
+  assert.equal(getRepresentativeImage(fixture), null)
+})
+
+test('un complemento bloqueado por backend no se muestra como disponible', () => {
+  const groups = normalizeVariantModifiers([{ name: 'Extras', complements: [{ name: 'Queso', price: '5.00', can_order: false, is_available: true }] }])
+  assert.equal(groups[0].complements[0].isAvailable, false)
+  assert.equal(groups[0].complements[0].price, '5.00')
+})
 
 test('construye URLs sin barras duplicadas y consulta sin credenciales', async () => {
   const fetcher: typeof fetch = async (input, init) => {
