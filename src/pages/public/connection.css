@@ -31,13 +31,44 @@ body {
   background-color: var(--mitbol-bg);
   color: var(--mitbol-neutral);
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+
+/* Permite que los hijos flex/grid se reduzcan sin ocultar contenido. */
+.connection-page :where(div, section, main, header, footer, nav, details) {
+  min-width: 0;
+}
+
+:where(button, a, summary):focus-visible {
+  outline: 3px solid var(--mitbol-primary-dark);
+  outline-offset: 4px;
+}
+
+:where(#catalog-heading, #product-detail, #backend-heading) {
+  scroll-margin-top: 1rem;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.75rem 1rem;
+  background: var(--mitbol-surface);
+  color: var(--mitbol-primary-dark);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 .connection-page {
   min-height: 100vh;
+  min-height: 100svh;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 1.25rem 1.25rem 3rem;
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(3rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
@@ -110,6 +141,10 @@ body {
 }
 
 .pill-nav-item {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 600;
@@ -131,6 +166,8 @@ button,
 .btn-secondary,
 .btn-inverted,
 .btn-outlined {
+  min-height: 44px;
+  max-width: 100%;
   font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 600;
@@ -342,7 +379,7 @@ main {
 /* Grilla y Tarjetas de Producto */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 295px), 1fr));
   gap: 1.35rem;
 }
 
@@ -415,6 +452,7 @@ main {
   left: 0.75rem;
   right: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
@@ -460,6 +498,7 @@ main {
 
 .product-header-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
@@ -480,7 +519,7 @@ main {
   background: var(--mitbol-secondary-soft);
   padding: 0.25rem 0.6rem;
   border-radius: 8px;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .description {
@@ -499,6 +538,8 @@ main {
 
 .variants li {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
@@ -508,6 +549,8 @@ main {
 
 .variant-row-name {
   display: flex;
+  flex-wrap: wrap;
+  flex: 1 1 10rem;
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
@@ -531,6 +574,7 @@ main {
 
 .variant-row-price,
 .complement-price {
+  margin-left: auto;
   font-weight: 700;
   color: var(--mitbol-neutral);
 }
@@ -551,7 +595,7 @@ main {
 
 .detail-header-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 1.5rem;
   align-items: start;
 }
@@ -599,7 +643,7 @@ main {
 
 .variant-selector {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
   gap: 0.85rem;
 }
 
@@ -642,7 +686,7 @@ main {
 
 .modifiers-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 1rem;
 }
 
@@ -655,6 +699,8 @@ main {
 
 .modifier-group-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
@@ -728,6 +774,7 @@ main {
 
 .backend-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
 }
@@ -742,6 +789,8 @@ main {
 }
 
 .json-details summary {
+  min-height: 44px;
+  padding-block: 0.75rem;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
@@ -749,6 +798,8 @@ main {
 }
 
 pre {
+  max-width: 100%;
+  overflow-wrap: normal;
   background: var(--mitbol-neutral);
   color: #F8FAFC;
   padding: 1rem;
@@ -778,5 +829,71 @@ pre {
   .site-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .connection-page {
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    gap: 1.25rem;
+  }
+
+  main { gap: 1.25rem; }
+
+  .site-header { padding: 1rem; }
+
+  .pill-nav { width: 100%; }
+
+  .pill-nav-item { flex: 1; }
+
+  .welcome-hero {
+    padding: 1.25rem;
+    gap: 1.25rem;
+    border-radius: 18px;
+  }
+
+  .welcome-copy h1 { font-size: clamp(1.65rem, 7vw, 2rem); }
+
+  .welcome-copy p { font-size: 1rem; }
+
+  .welcome-card { padding: 1rem; }
+
+  .hero-actions,
+  .backend-actions { width: 100%; }
+
+  .hero-actions > *,
+  .backend-actions > button,
+  .section-heading > button,
+  .detail-footer-actions > *,
+  .notice > button { width: 100%; }
+
+  .product-grid { gap: 1rem; }
+
+  .product-body,
+  .panel { padding: 1rem; }
+
+  .detail-header-grid { gap: 1rem; }
+
+  .product-header-row { flex-direction: column; }
+
+  .product-media { height: auto; aspect-ratio: 16 / 9; }
+
+  .detail-image { height: auto; aspect-ratio: 4 / 3; }
+
+  .detail-summary h3 { font-size: 1.3rem; }
+
+  .notice { padding: 1rem; }
+
+  .site-footer { flex-direction: column; }
+}
+
+@media (hover: none) {
+  .product-card:hover { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
   }
 }

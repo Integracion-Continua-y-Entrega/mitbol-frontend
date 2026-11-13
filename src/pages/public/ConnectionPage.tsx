@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
 import { API_URL } from '../../services/config'
 import {
@@ -242,12 +242,22 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
 
 function ProductDetail({ id, close }: { id: number; close: () => void }) {
   const { result, retry } = useApi(`/api/menu/${encodeURIComponent(id)}`, parseProduct)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true })
+    document.getElementById('product-detail')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    })
+  }, [])
+
   return (
     <section id="product-detail" className="panel detail" aria-labelledby="detail-heading" aria-live="polite">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Consulta individual</p>
-          <h2 id="detail-heading">Detalle del platillo #{id}</h2>
+          <h2 id="detail-heading" ref={headingRef} tabIndex={-1}>Detalle del platillo #{id}</h2>
         </div>
         <button className="btn-secondary" onClick={close}>Cerrar detalle ✕</button>
       </div>
@@ -270,9 +280,11 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
 export default function ConnectionPage() {
   const { result, retry } = useApi('/api/menu', parseMenu)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const selectedButtonRef = useRef<HTMLButtonElement | null>(null)
 
   return (
     <div className="connection-page">
+      <a className="skip-link" href="#catalog-heading">Ir al menú</a>
       <header className="site-header">
         <a className="brand" href="/">
           <MitbolLogo />
@@ -312,7 +324,7 @@ export default function ConnectionPage() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Desde nuestra cocina</p>
-              <h2 id="catalog-heading">Nuestro Menú</h2>
+              <h2 id="catalog-heading" tabIndex={-1}>Nuestro Menú</h2>
             </div>
             <button className="btn-outlined" onClick={retry}>↻ Actualizar catálogo</button>
           </div>
@@ -329,11 +341,16 @@ export default function ConnectionPage() {
                   key={product.product_id}
                   product={product}
                   currency={result.data!.currency}
-                  onSelect={() => {
+                  selected={selectedId === product.product_id}
+                  onSelect={(button) => {
+                    selectedButtonRef.current = button
+                    if (selectedId === product.product_id) {
+                      document.getElementById('detail-heading')?.focus({ preventScroll: true })
+                      document.getElementById('product-detail')?.scrollIntoView({
+                        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+                      })
+                    }
                     setSelectedId(product.product_id)
-                    setTimeout(() => {
-                      document.getElementById('product-detail')?.scrollIntoView({ behavior: 'smooth' })
-                    }, 50)
                   }}
                 />
               ))}
@@ -347,7 +364,10 @@ export default function ConnectionPage() {
         </section>
 
         {selectedId !== null ? (
-          <ProductDetail key={selectedId} id={selectedId} close={() => setSelectedId(null)} />
+          <ProductDetail key={selectedId} id={selectedId} close={() => {
+            setSelectedId(null)
+            selectedButtonRef.current?.focus()
+          }} />
         ) : (
           <p className="detail-hint">
             Selecciona <strong>«Consultar detalle»</strong> en cualquier platillo para revisar sus presentaciones y complementos.

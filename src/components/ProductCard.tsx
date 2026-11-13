@@ -21,10 +21,11 @@ function citrusMark() {
   )
 }
 
-export default function ProductCard({ product, currency, onSelect }: {
+export default function ProductCard({ product, currency, onSelect, selected = false }: {
   product: MenuProduct
   currency: string
-  onSelect?: () => void
+  onSelect?: (button: HTMLButtonElement) => void
+  selected?: boolean
 }) {
   const [imgError, setImgError] = useState(false)
   const imageUrl = getRepresentativeImage(product)
@@ -90,7 +91,13 @@ export default function ProductCard({ product, currency, onSelect }: {
         )}
 
         {onSelect && (
-          <button className="btn-primary detail-button" onClick={onSelect}>
+          <button
+            className="btn-primary detail-button"
+            aria-controls={selected ? 'product-detail' : undefined}
+            aria-expanded={selected}
+            aria-label={`Consultar detalle de ${product.name}`}
+            onClick={(event) => onSelect(event.currentTarget)}
+          >
             Consultar detalle <span aria-hidden="true">→</span>
           </button>
         )}
