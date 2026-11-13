@@ -95,6 +95,39 @@ Los estados vacío y error están cubiertos por las pruebas existentes del clien
 
 El build estático se genera en `dist/`. El host debe servir `/index.html` como fallback para las rutas de React Router. Configura `VITE_API_BASE_URL` antes del build y autoriza el origen HTTPS del frontend en CORS del backend. El proxy de desarrollo no forma parte del build estático. El despliegue se coordina con el equipo.
 
+### CI con GitHub Actions
+
+`.github/workflows/ci.yml` ejecuta el check **Pruebas y compilación** al abrir o actualizar un PR hacia `develop`, y en cada push a `develop`. Instala las dependencias con `npm ci`, ejecuta las pruebas y compila con `npm run build`, que también comprueba TypeScript. Utiliza Node **24.22.1**, según `.node-version`, y caché de npm. Las pruebas usan fixtures locales, sin modificar la base compartida ni requerir credenciales.
+
+El flujo de trabajo es: rama de trabajo → PR a `develop` → checks aprobados → revisión y merge → checks del nuevo commit en `develop` → despliegue automático en Render. Un PR por sí solo no publica la rama de trabajo. Después del primer check, un administrador del repositorio puede configurar una regla para `develop` que exija PR y el check **Pruebas y compilación** antes de fusionar; añadir el YAML no activa esa regla por sí solo.
+
+### Primera conexión con Render
+
+`render.yaml` define el sitio estático y su despliegue desde `develop`. Para activarlo una sola vez:
+
+1. Fusiona el PR cuando sus checks estén aprobados.
+2. En Render, selecciona **New → Blueprint**, conecta este repositorio mediante la integración de GitHub y elige la rama `develop`. Usa `render.yaml` y revisa el servicio antes de crearlo. No crees un segundo servicio si el frontend ya existe: configura el existente con los valores de la tabla.
+3. La configuración utiliza **After CI Checks Pass** (`autoDeployTrigger: checksPass`): los siguientes cambios de `develop` se despliegan únicamente después de que sus checks pasen. No se requieren deploy hooks ni secretos de Render en GitHub Actions.
+4. Copia el origen HTTPS real que asigne Render y pide al responsable del backend que lo añada a los orígenes CORS, conservando localhost y los demás orígenes válidos. No uses una URL supuesta.
+5. Comprueba el menú, un detalle, Conexión y la recarga directa de `/admin`. El inicio de sesión y las escrituras administrativas requieren verificar además las cookies y CSRF desde el nuevo dominio.
+
+| Configuración | Valor |
+| --- | --- |
+| Tipo | Static Site |
+| Rama | `develop` |
+| Root Directory | Vacío, raíz del repositorio |
+| Build Command | `npm ci && npm run build` |
+| Publish Directory | `dist` |
+| Variable de entorno | `VITE_API_BASE_URL=https://mitbol-backend.onrender.com` |
+| Auto-Deploy | After CI Checks Pass |
+| Rewrite | `/*` → `/index.html` |
+
+Render toma la versión de Node de `.node-version`. Si el servicio existente define `NODE_VERSION`, debe coincidir con ese archivo o retirarse para evitar que lo sobrescriba. No se utiliza `npm run dev`, `npm run preview` ni un Start Command para servir el sitio estático en producción.
+
+La conexión inicial del servicio y la configuración de CORS son pasos externos al repositorio. Los archivos anteriores preparan CI/CD; el despliegue queda operativo cuando el servicio de Render esté conectado y se confirme su URL.
+
+Referencias: [GitHub Actions para Node.js](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs), [Blueprints de Render](https://render.com/docs/blueprint-spec), [desplegar después de CI](https://render.com/docs/deploys#integrating-with-ci) y [versión de Node en Render](https://render.com/docs/node-version).
+
 ## Equipo
 
 - Carlos de Jesús Miranda Becerra
