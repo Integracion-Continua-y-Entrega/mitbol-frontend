@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../src/services/menu.ts'
+import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, resolveProductConfiguration, sumMenuPrices } from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -71,6 +71,47 @@ test('suma precios de variante y extras con precisión decimal y detecta precios
   assert.equal(sumMenuPrices(['0.1', '0.20', '0.005']), '0.305')
   assert.equal(sumMenuPrices(['89.00', null]), null)
   assert.equal(sumMenuPrices(['89.00', '']), null)
+})
+
+test('valida la configuración contra los extras vigentes de la presentación', () => {
+  const cheese = { product_complement_id: 3, name: 'Queso', price: '5.25' }
+  const bacon = { product_complement_id: 4, name: 'Tocino', price: '7.00' }
+  const group = { product_modifier_id: 2, name: 'Extras' }
+  const first = {
+    ...fixture.variants[0], is_available: true, can_order: true,
+    modifiers: [{ ...group, complements: [cheese, bacon] }],
+  }
+  const second = { ...first, product_variant_id: 9, price: '20.00', modifiers: [{ ...group, complements: [cheese] }] }
+  const item = { ...fixture, is_available: true, can_order: true, variants: [first, second] }
+  const { groups } = resolveProductConfiguration(item, first.product_variant_id, [])
+  const keys = groups[0].complements.map(option => option.key)
+  assert.deepEqual(resolveProductConfiguration(item, first.product_variant_id, keys).configuration, {
+    productId: 7, variantId: 8, complementIds: [3, 4], estimatedPrice: '24.75',
+  })
+  const switched = resolveProductConfiguration(item, second.product_variant_id, keys)
+  assert.equal(switched.configuration, null)
+  assert.deepEqual(switched.selectedKeys, keys.slice(0, 1))
+  assert.equal(resolveProductConfiguration(item, second.product_variant_id, switched.selectedKeys).configuration?.estimatedPrice, '25.25')
+  assert.equal(resolveProductConfiguration(item, 999, []).configuration, null)
+})
+
+test('descarta configuraciones agotadas y bloquea complementos sin precio o identificador', () => {
+  const variant = {
+    ...fixture.variants[0], is_available: true, can_order: true,
+    modifiers: [{ product_modifier_id: 2, name: 'Extras', complements: [
+      { name: 'Sin identificador', price: '3.00' },
+      { product_complement_id: 3, name: 'Sin precio' },
+      { product_complement_id: 4, name: 'Salsa', price: '0.00' },
+    ] }],
+  }
+  const item = { ...fixture, is_available: true, can_order: true, variants: [variant] }
+  const options = resolveProductConfiguration(item, variant.product_variant_id, []).groups[0].complements
+  assert.deepEqual(options.map(option => option.isAvailable), [false, false, true])
+  assert.equal(resolveProductConfiguration(item, variant.product_variant_id, [options[2].key]).configuration?.estimatedPrice, '12.50')
+  const soldOut = { ...item, variants: [{ ...variant, can_order: false }] }
+  const stale = resolveProductConfiguration(soldOut, variant.product_variant_id, [options[2].key])
+  assert.equal(stale.configuration, null)
+  assert.deepEqual(stale.selectedKeys, [])
 })
 
 test('construye URLs sin barras duplicadas y consulta sin credenciales', async () => {

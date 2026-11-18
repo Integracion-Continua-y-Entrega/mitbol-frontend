@@ -31,6 +31,7 @@ export interface ProductResponse { currency: string; product: MenuProduct | null
 
 export interface NormalizedComplement {
   id: string
+  catalogId: number | null
   name: string
   price: string | null
   isAvailable: boolean
@@ -86,10 +87,12 @@ export function formatPrice(price: string | null, currency: string): string {
   return price === null ? 'Precio no informado' : `${price} ${currency}`
 }
 
+const menuPricePattern = /^\d+(\.\d+)?$/
+
 export function sumMenuPrices(prices: (string | null)[]): string | null {
   const decimals: { units: bigint; scale: number }[] = []
   for (const price of prices) {
-    if (price === null || !/^\d+(\.\d+)?$/.test(price)) return null
+    if (price === null || !menuPricePattern.test(price)) return null
     const [whole, fraction = ''] = price.split('.')
     decimals.push({ units: BigInt(whole + fraction), scale: fraction.length })
   }
@@ -192,15 +195,19 @@ export function normalizeVariantModifiers(rawModifiers?: unknown[], variantId?: 
     const complements: NormalizedComplement[] = rawOptions.flatMap((opt, optIdx) => {
       if (!record(opt) || typeof opt.name !== 'string') return []
       const rawPrice = opt.price ?? opt.additional_price ?? opt.extra_price ?? null
-      const priceStr = typeof rawPrice === 'string'
+      const priceStr = typeof rawPrice === 'string' && menuPricePattern.test(rawPrice)
         ? rawPrice
-        : typeof rawPrice === 'number'
+        : typeof rawPrice === 'number' && Number.isFinite(rawPrice) && rawPrice >= 0
           ? rawPrice.toFixed(2)
           : null
       const isAvailable = opt.can_order !== false && opt.is_available !== false && opt.is_active !== false
+      const rawId = opt.product_complement_id ?? opt.complement_id ?? opt.id
+      const numericId = typeof rawId === 'string' && /^\d+$/.test(rawId) ? Number(rawId) : rawId
+      const catalogId = typeof numericId === 'number' && Number.isSafeInteger(numericId) && numericId > 0 ? numericId : null
 
       return [{
-        id: String(opt.product_complement_id ?? opt.complement_id ?? opt.id ?? `variant-${variantId}-option-${modIdx}-${optIdx}`),
+        id: String(catalogId ?? `variant-${variantId}-option-${modIdx}-${optIdx}`),
+        catalogId,
         name: opt.name,
         price: priceStr,
         isAvailable,
@@ -214,4 +221,35 @@ export function normalizeVariantModifiers(rawModifiers?: unknown[], variantId?: 
       complements,
     }]
   })
+}
+
+export function canOrderMenuVariant(product: MenuProduct, variant: MenuVariant): boolean {
+  return product.is_active && product.is_available && product.can_order && variant.is_available && variant.can_order
+    && menuPricePattern.test(variant.price)
+}
+
+export function resolveProductConfiguration(product: MenuProduct, variantId: number | null, selectedKeys: string[]) {
+  const variant = product.variants.find(item => item.product_variant_id === variantId)
+  const canOrder = variant !== undefined && canOrderMenuVariant(product, variant)
+  const groups = normalizeVariantModifiers(variant?.modifiers, variantId ?? undefined).map(group => ({
+    ...group,
+    complements: group.complements.map(option => ({
+      ...option,
+      key: JSON.stringify([group.id, option.id]),
+      isAvailable: canOrder && group.isAvailable && option.isAvailable && option.catalogId !== null && option.price !== null,
+    })),
+  }))
+  const selected = new Map<string, NormalizedComplement>()
+  for (const option of groups.flatMap(group => group.complements)) {
+    if (option.isAvailable && selectedKeys.includes(option.key)) selected.set(option.key, option)
+  }
+  const complements = [...selected.values()]
+  const estimate = variant ? sumMenuPrices([variant.price, ...complements.map(option => option.price)]) : null
+  const configuration = canOrder && estimate !== null && selected.size === selectedKeys.length ? {
+    productId: product.product_id,
+    variantId: variant.product_variant_id,
+    complementIds: complements.flatMap(option => option.catalogId === null ? [] : [option.catalogId]),
+    estimatedPrice: estimate,
+  } : null
+  return { groups, selectedKeys: [...selected.keys()], configuration }
 }

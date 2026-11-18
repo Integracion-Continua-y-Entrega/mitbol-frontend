@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
 import ProductImage from '../../components/ProductImage'
-import { formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../../services/menu'
+import { canOrderMenuVariant, formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, parseMenu, parseProduct, resolveProductConfiguration, sumMenuPrices } from '../../services/menu'
 import type { MenuProduct, MenuResponse, ProductResponse } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import { useMenuSync } from '../../services/useMenuSync'
@@ -32,29 +32,18 @@ function Failure({ message, retry }: { message: string; retry: () => void }) {
 }
 
 function ProductDetailContent({ product, currency }: { product: MenuProduct; currency: string }) {
-  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(product.variants[0]?.product_variant_id ?? null)
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null)
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
-  const selectedVariant = product.variants.find(v => v.product_variant_id === selectedVariantId) ?? product.variants[0] ?? null
+  const selectedVariant = product.variants.find(variant => variant.product_variant_id === selectedVariantId)
+    ?? product.variants.find(variant => canOrderMenuVariant(product, variant))
+    ?? product.variants[0]
+    ?? null
   const imageUrls = getProductImageUrls(product, selectedVariant)
   const variantTags = getVariantTagNames(selectedVariant)
   const isProductAvailable = product.is_active && product.is_available
-  const canCustomize = isProductAvailable && product.can_order && selectedVariant?.is_available === true && selectedVariant.can_order
-  const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers, selectedVariant?.product_variant_id).map(group => ({
-    ...group,
-    complements: group.complements.map(option => ({
-      ...option,
-      key: JSON.stringify([group.id, option.id]),
-      isAvailable: canCustomize && group.isAvailable && option.isAvailable,
-    })),
-  }))
-  const selectedComplements = modifierGroups.flatMap(group => group.complements)
-    .filter(option => option.isAvailable && selectedOptions.includes(option.key))
-  if (selectedComplements.length !== selectedOptions.length) {
-    setSelectedOptions(selectedComplements.map(option => option.key))
-  }
-  const price = selectedVariant && selectedComplements.length > 0
-    ? sumMenuPrices([selectedVariant.price, ...selectedComplements.map(option => option.price)])
-    : selectedVariant?.price ?? null
+  const { groups: modifierGroups, selectedKeys, configuration } = resolveProductConfiguration(product, selectedVariant?.product_variant_id ?? null, selectedOptions)
+  if (selectedKeys.length !== selectedOptions.length) setSelectedOptions(selectedKeys)
+  const price = configuration?.estimatedPrice ?? sumMenuPrices([selectedVariant?.price ?? null])
 
   return (
     <div className="product-detail-card">
@@ -75,7 +64,7 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
             {selectedVariant && <p className="muted selected-variant-name">{selectedVariant.name}</p>}
           </div>
           <p className="price detail-price">
-            {selectedComplements.length > 0 && <span>Importe estimado</span>}
+            {configuration && configuration.complementIds.length > 0 && <span>Importe estimado</span>}
             {selectedVariant ? formatPrice(price, currency) : formatRepresentativePrice(product, currency)}
           </p>
         </div>
@@ -85,11 +74,30 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
         {!isProductAvailable && <p className="notice sold-out-banner" role="status">Este producto no está disponible actualmente. Puedes consultar sus presentaciones y complementos.</p>}
         <section className="detail-section" aria-labelledby="variants-heading">
           <h3 id="variants-heading">Presentaciones <span className="count-badge">{product.variants.length}</span></h3>
-          {product.variants.length > 0 ? <div className="variant-selector" role="group" aria-label="Seleccionar presentación">{product.variants.map(variant => {
-            const isSelected = selectedVariant?.product_variant_id === variant.product_variant_id
-            const available = isProductAvailable && variant.is_available
-            return <button key={variant.product_variant_id} type="button" className={`variant-option ${isSelected ? 'selected' : ''}`} aria-pressed={isSelected} onClick={() => setSelectedVariantId(variant.product_variant_id)}><span className="variant-option-name">{variant.name}</span><span className="variant-option-price">{formatPrice(variant.price, currency)}</span><span className="variant-mini-tags">{getVariantTagNames(variant).map(tag => <span className="variant-mini-tag" key={tag}>{tag}</span>)}</span><small className={available ? 'variant-option-status' : 'variant-option-status unavailable'}>{available ? 'Disponible' : 'Agotado'}</small></button>
-          })}</div> : <p className="muted">Este producto no tiene variantes registradas.</p>}
+          {product.variants.length > 0 ? (
+            <div className="variant-selector" role="group" aria-label="Seleccionar presentación">
+              {product.variants.map(variant => {
+                const isSelected = selectedVariant?.product_variant_id === variant.product_variant_id
+                const canOrder = canOrderMenuVariant(product, variant)
+                const status = canOrder ? 'Disponible' : !variant.is_available ? 'Agotada' : 'No disponible para pedir'
+                return (
+                  <button
+                    key={variant.product_variant_id}
+                    type="button"
+                    className={`variant-option ${isSelected ? 'selected' : ''}`}
+                    aria-pressed={isSelected}
+                    disabled={!canOrder}
+                    onClick={() => setSelectedVariantId(variant.product_variant_id)}
+                  >
+                    <span className="variant-option-name">{variant.name}</span>
+                    <span className="variant-option-price">{formatPrice(variant.price, currency)}</span>
+                    <span className="variant-mini-tags">{getVariantTagNames(variant).map(tag => <span className="variant-mini-tag" key={tag}>{tag}</span>)}</span>
+                    <small className={canOrder ? 'variant-option-status' : 'variant-option-status unavailable'}>{status}</small>
+                  </button>
+                )
+              })}
+            </div>
+          ) : <p className="muted">Este producto no tiene variantes registradas.</p>}
         </section>
         <section className="detail-section" aria-labelledby="modifiers-heading">
           <div className="options-heading"><h3 id="modifiers-heading">Opciones adicionales</h3></div>
@@ -108,7 +116,7 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
                           <label className="complement-option">
                             <input
                               type="checkbox"
-                              checked={option.isAvailable && selectedOptions.includes(option.key)}
+                              checked={selectedKeys.includes(option.key)}
                               disabled={!option.isAvailable}
                               onChange={(event) => {
                                 const checked = event.currentTarget.checked
