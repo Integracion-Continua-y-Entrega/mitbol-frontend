@@ -42,6 +42,36 @@ export interface DescriptionResponse {
   description: string | null
 }
 
+export interface ProductHighlightsResponse {
+  product_id: number
+  is_featured: boolean
+  is_new: boolean
+}
+
+export interface ProductHighlightsUpdate {
+  is_featured: boolean
+  is_new: boolean
+}
+
+export type DiscountType =
+  | 'FIXED_PERCENT'
+  | 'FIXED_AMOUNT'
+  | 'VARIABLE_PERCENT'
+  | 'VARIABLE_AMOUNT'
+  | 'DISCOUNT_BY_POINTS'
+
+export interface DiscountRead {
+  discount_id: number
+  loyverse_id: string
+  name: string
+  discount_type: DiscountType
+  value: string | null
+  scope: string
+  is_active: boolean
+  synced_at: string | null
+  created_at: string
+}
+
 export interface ImageResponse {
   product_image_id: number
   product_variant_id: number
@@ -81,14 +111,14 @@ export function notifyMenuUpdated() {
       bc.close()
     }
   } catch {
-    // Ignorar si el navegador restringe BroadcastChannel
+    void 0
   }
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(MENU_SYNC_STORAGE_KEY, timestamp)
     }
   } catch {
-    // Ignorar errores de almacenamiento
+    void 0
   }
 }
 
@@ -126,7 +156,7 @@ async function extractErrorMessage(response: Response): Promise<string> {
         .join(', ')
     }
   } catch {
-    // Respuesta sin cuerpo JSON
+    void 0
   }
   if (response.status === 401) return 'Sesión no iniciada o expirada. Inicia sesión nuevamente.'
   if (response.status === 403) return 'No tienes permisos suficientes o falta validación CSRF.'
@@ -148,7 +178,7 @@ export async function adminFetch<T>(path: string, options: AdminRequestOptions =
       const csrfData = await fetchCsrfToken()
       setCsrfToken(csrfData.csrf_token)
     } catch {
-      // Continuar para que el backend devuelva el código HTTP correspondiente
+      void 0
     }
   }
 
@@ -219,6 +249,27 @@ export async function logoutAdmin(): Promise<void> {
   }
 }
 
+export async function logoutAllAdmin(): Promise<void> {
+  try {
+    await adminFetch<unknown>('/api/auth/logout-all', { method: 'POST' })
+  } finally {
+    setCsrfToken(null)
+  }
+}
+
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await adminFetch<unknown>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  })
+}
+
 // HU-007: Disponibilidad de Productos y Variantes
 export async function getProductAvailability(productId: number): Promise<ProductAvailabilityResponse> {
   return adminFetch<ProductAvailabilityResponse>(`/api/admin/products/${productId}/availability`)
@@ -248,7 +299,7 @@ export async function updateVariantAvailability(
   })
 }
 
-// HU-005: Descripciones
+// HU-005: Descripciones e Indicadores Destacados (Highlights)
 export async function getProductDescription(productId: number): Promise<DescriptionResponse> {
   return adminFetch<DescriptionResponse>(`/api/admin/products/${productId}/description`)
 }
@@ -260,6 +311,20 @@ export async function updateProductDescription(
   return adminFetch<DescriptionResponse>(`/api/admin/products/${productId}/description`, {
     method: 'PATCH',
     body: JSON.stringify({ description }),
+  })
+}
+
+export async function getProductHighlights(productId: number): Promise<ProductHighlightsResponse> {
+  return adminFetch<ProductHighlightsResponse>(`/api/admin/products/${productId}/highlights`)
+}
+
+export async function updateProductHighlights(
+  productId: number,
+  payload: ProductHighlightsUpdate
+): Promise<ProductHighlightsResponse> {
+  return adminFetch<ProductHighlightsResponse>(`/api/admin/products/${productId}/highlights`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
   })
 }
 
@@ -306,7 +371,15 @@ export async function getAllTags(): Promise<TagResponse[]> {
   return Array.isArray(res) ? res : res.tags
 }
 
-export async function createTag(name: string): Promise<TagResponse> {
+export async function createTag(name: string): Promise<TagResponse[]> {
+  const created = await adminFetch<TagResponse>('/api/admin/tags', {
+    method: 'POST',
+    body: JSON.stringify({ name: name.trim() }),
+  })
+  return [created]
+}
+
+export async function createSingleTag(name: string): Promise<TagResponse> {
   return adminFetch<TagResponse>('/api/admin/tags', {
     method: 'POST',
     body: JSON.stringify({ name: name.trim() }),
@@ -328,6 +401,11 @@ export async function removeTagFromVariant(variantId: number, tagId: number): Pr
   await adminFetch<unknown>(`/api/admin/variants/${variantId}/tags/${tagId}`, {
     method: 'DELETE',
   })
+}
+
+// Descuentos sincronizados desde Loyverse
+export async function getAdminDiscounts(): Promise<DiscountRead[]> {
+  return adminFetch<DiscountRead[]>('/api/admin/discounts')
 }
 
 // HU-004: Configuración pública del QR
