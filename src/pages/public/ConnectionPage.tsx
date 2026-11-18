@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
+import ProductImage from '../../components/ProductImage'
 import { API_URL } from '../../services/config'
-import { formatPrice, formatRepresentativePrice, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseHealth, parseMenu, parseProduct } from '../../services/menu'
+import { formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, normalizeVariantModifiers, parseHealth, parseMenu, parseProduct } from '../../services/menu'
 import type { MenuProduct, MenuResponse, ProductResponse } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import { useMenuSync } from '../../services/useMenuSync'
@@ -48,16 +49,23 @@ function BackendStatus() {
 
 function ProductDetailContent({ product, currency }: { product: MenuProduct; currency: string }) {
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(product.variants[0]?.product_variant_id ?? null)
-  const [failedImage, setFailedImage] = useState<string | null>(null)
   const selectedVariant = product.variants.find(v => v.product_variant_id === selectedVariantId) ?? product.variants[0] ?? null
-  const imageUrl = getRepresentativeImage(product, selectedVariant)
+  const imageUrls = getProductImageUrls(product, selectedVariant)
   const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers)
   const variantTags = getVariantTagNames(selectedVariant)
   const isProductAvailable = product.is_active && product.is_available
 
   return (
     <div className="product-detail-card">
-      <div className="detail-media">{imageUrl && failedImage !== imageUrl ? <img src={imageUrl} alt={selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name} className="detail-image" onError={() => setFailedImage(imageUrl)} /> : <div className="product-placeholder detail-placeholder"><img src="/mitbol-logo.png" alt="" /><span>Sin fotografía disponible</span></div>}</div>
+      <div className="detail-media">
+        <ProductImage
+          key={selectedVariant?.product_variant_id ?? product.product_id}
+          urls={imageUrls}
+          alt={selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name}
+          className="detail-image"
+          fallback={<div className="product-placeholder detail-placeholder"><img src="/mitbol-logo.png" alt="" /><span>Sin fotografía disponible para esta presentación</span></div>}
+        />
+      </div>
       <div className="detail-sheet">
         <div className="detail-title-row">
           <div><p className="eyebrow">De nuestra cocina</p><h2>{product.name}</h2></div>

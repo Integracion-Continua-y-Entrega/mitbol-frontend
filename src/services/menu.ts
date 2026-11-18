@@ -114,23 +114,32 @@ export function formatRepresentativePrice(item: MenuProduct, currency: string): 
   return formatPrice(item.price_min, currency)
 }
 
-export function getRepresentativeImage(item: MenuProduct, selectedVariant?: MenuVariant | null): string | null {
-  if (selectedVariant) {
-    if (selectedVariant.image_url) return resolveMediaUrl(selectedVariant.image_url)
-    if (Array.isArray(selectedVariant.images)) {
-      for (const img of selectedVariant.images) {
-        if (typeof img === 'string' && img.trim()) return resolveMediaUrl(img)
-        if (record(img) && typeof img.image_url === 'string' && img.image_url.trim()) {
-          return resolveMediaUrl(img.image_url)
-        }
-      }
+export function getProductImageUrls(item: MenuProduct, selectedVariant?: MenuVariant | null): string[] {
+  const urls = new Set<string>()
+  const add = (value: unknown) => {
+    if (typeof value !== 'string') return
+    const url = resolveMediaUrl(value)
+    if (url) urls.add(url)
+  }
+  const addVariant = (variant: MenuVariant) => {
+    add(variant.image_url)
+    for (const photo of variant.images ?? []) {
+      add(record(photo) ? photo.image_url : photo)
     }
   }
-  if (item.image_url) return resolveMediaUrl(item.image_url)
-  for (const v of item.variants) {
-    if (v.image_url) return resolveMediaUrl(v.image_url)
+
+  if (selectedVariant) {
+    // El detalle no debe mostrar una foto de otra presentación por error.
+    addVariant(selectedVariant)
+  } else {
+    add(item.image_url)
+    item.variants.forEach(addVariant)
   }
-  return null
+  return [...urls]
+}
+
+export function getRepresentativeImage(item: MenuProduct, selectedVariant?: MenuVariant | null): string | null {
+  return getProductImageUrls(item, selectedVariant)[0] ?? null
 }
 
 export function getVariantTagNames(v: MenuVariant | null | undefined): string[] {

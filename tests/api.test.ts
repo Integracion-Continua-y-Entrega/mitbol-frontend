@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct } from '../src/services/menu.ts'
+import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct } from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -21,6 +21,34 @@ test('resuelve fotografías relativas del administrador y conserva URLs completa
   assert.equal(getRepresentativeImage({ ...fixture, image_url: '/uploads/menu.webp' }), 'https://mitbol-backend.onrender.com/uploads/menu.webp')
   assert.equal(getRepresentativeImage({ ...fixture, image_url: 'https://images.example.test/menu.webp' }), 'https://images.example.test/menu.webp')
   assert.equal(getRepresentativeImage(fixture), null)
+})
+
+test('incluye toda la galería sin repetir la foto principal para intentar alternativas', () => {
+  const item = {
+    ...fixture,
+    image_url: '/media/principal.jpg',
+    variants: [{
+      ...fixture.variants[0], image_url: '/media/principal.jpg',
+      images: [{ image_url: '/media/principal.jpg' }, { image_url: '/media/respaldo.jpg' }, '/media/otra.jpg', null, { image_url: '' }],
+    }],
+  }
+  assert.deepEqual(getProductImageUrls(item), [
+    'https://mitbol-backend.onrender.com/media/principal.jpg',
+    'https://mitbol-backend.onrender.com/media/respaldo.jpg',
+    'https://mitbol-backend.onrender.com/media/otra.jpg',
+  ])
+})
+
+test('el catálogo considera galerías de otras variantes; el detalle conserva la variante elegida', () => {
+  const first = { ...fixture.variants[0], image_url: '/media/sencilla.jpg', images: [] }
+  const second = { ...fixture.variants[0], product_variant_id: 9, image_url: '/media/doble.jpg', images: [{ image_url: '/media/doble-alternativa.jpg' }] }
+  const item = { ...fixture, image_url: first.image_url, variants: [first, second] }
+  assert.equal(getProductImageUrls(item).length, 3)
+  assert.deepEqual(getProductImageUrls(item, first), ['https://mitbol-backend.onrender.com/media/sencilla.jpg'])
+  assert.deepEqual(getProductImageUrls(item, second), [
+    'https://mitbol-backend.onrender.com/media/doble.jpg',
+    'https://mitbol-backend.onrender.com/media/doble-alternativa.jpg',
+  ])
 })
 
 test('un complemento bloqueado por backend no se muestra como disponible', () => {
