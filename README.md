@@ -1,4 +1,45 @@
-# MITBOL frontend
+# 📱 Frontend - Menú Digital mitbol
+
+Este repositorio contiene la capa de presentación del sistema de menú digital mediante código QR para el restaurante **mitbol**. Desarrollado como proyecto integrador para la materia de Desarrollo de Sistemas Web.
+
+## 🚀 Tecnologías Utilizadas
+
+- **Framework:** [React](https://reactjs.org/)
+- **Build Tool:** [Vite](https://vitejs.dev/)
+- **Enrutamiento:** React Router DOM
+- **Estilos:**
+
+## 📁 Estructura Principal
+
+El proyecto está dividido en dos vistas principales:
+
+1. **Interfaz para Clientes:** Vista de solo lectura optimizada para dispositivos móviles (escaneo de QR) donde los comensales pueden consultar categorías, platillos, promociones y precios.
+2. **Interfaz de Administración:** Panel privado protegido por autenticación para que el personal autorizado gestione el contenido del menú.
+
+## 🛠️ Instalación y Uso Local
+
+Sigue estos pasos para correr el proyecto en tu entorno de desarrollo:
+
+1. Clona el repositorio y entra en su carpeta:
+
+   ```powershell
+   git clone https://github.com/Integracion-Continua-y-Entrega/mitbol-frontend.git
+   cd mitbol-frontend
+   ```
+
+2. Instala las dependencias:
+
+   ```powershell
+   npm install
+   ```
+
+3. Levanta el servidor de desarrollo:
+
+   ```powershell
+   npm run dev
+   ```
+
+## Alcance del proyecto
 
 Menú digital público de MITBOL desarrollado con React, TypeScript y Vite. Permite consultar productos, disponibilidad, precios, presentaciones y complementos desde el navegador.
 
@@ -68,16 +109,6 @@ Para revisar la interfaz en DevTools:
 6. Revisa navegación por teclado, zoom al 200 % y la preferencia de movimiento reducido.
 
 El primer arranque del backend puede tardar; el cliente conserva un timeout de 90 segundos y permite reintentar. Un error de red o CORS no se sustituye por productos ficticios.
-
-## Resultado de esta revisión — 12 de noviembre de 2026
-
-`npm test`: 9/9 pruebas correctas. `npm run build`: TypeScript y compilación de producción correctos.
-
-Se revisó el catálogo real y el detalle en navegador a 320, 375, 390, 480, 667, 768 y 1280 px, sin desbordamiento horizontal del documento. Se inspeccionaron visualmente el catálogo a 390 px y el detalle a 320 px. Los botones y enlaces de navegación medidos tienen al menos 44 px de alto. La consulta de Limonada natural permitió cambiar de 355 ml a 500 ml, mostrar el precio de 49.00 MXN de esta última presentación y volver al botón original al cerrar el detalle.
-
-Se verificó el proxy local consultando el catálogo (3 productos), un detalle y el diagnóstico del backend (HTTP 200). También se confirmó manualmente el funcionamiento desde un teléfono conectado a la red local. Queda pendiente la revisión específica en Safari/iOS y Chrome/Android; no se registró el navegador de la prueba manual.
-
-Los estados vacío y error están cubiertos por las pruebas existentes del cliente y el contrato, pero no se forzaron visualmente en esta revisión. No se modificó la base de datos compartida.
 
 ## Despliegue
 
