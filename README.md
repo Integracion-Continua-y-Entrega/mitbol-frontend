@@ -50,19 +50,7 @@ Los estilos del panel mantienen sus componentes y colores mediante `.admin-page`
 
 Integración verificada el 13 de noviembre de 2026: build correcto, 12/12 pruebas y revisión del catálogo con etiquetas, actualización sin ocultar los productos, formulario de acceso administrativo y redirección de `/admin/dashboard` al login sin sesión. No se probaron escrituras ni un inicio de sesión con credenciales reales.
 
-## Verificación
-
-### Diseño basado en el prototipo móvil
-
-El menú y el detalle siguen la composición de las pantallas móviles en español de `Prototipo - Mitbol.pdf`: cabecera blanca con la marca, fondo claro, acentos oliva y naranja, tarjetas redondeadas y navegación inferior. El logotipo de `public/mitbol-logo.png` se extrajo del prototipo proporcionado.
-
-La portada presenta el catálogo real en una franja horizontal «Nuestra carta» y en una lista compacta con miniatura, descripción, precio y disponibilidad. Esta franja permite explorar todos los productos; no implementa ni simula la historia de destacados. Al abrir un producto se muestra una vista independiente con imagen grande, ficha blanca, presentaciones y opciones adicionales. Las fotografías ausentes conservan un respaldo explícito.
-
-Se verificó el nuevo menú a 320, 390, 440, 768 y 1280 px sin desbordamiento horizontal del documento. Se comprobó el cambio de presentación de la limonada a 500 ml (49.00 MXN), el regreso del foco al producto al cerrar el detalle y el diagnóstico de conexión en línea con su respuesta JSON. La consola del navegador no registró errores durante esta comprobación.
-
-La navegación móvil y de escritorio ofrece «Menú» y «Mi lealtad». El catálogo se consulta automáticamente al volver al menú y se sincroniza en segundo plano mientras la página está visible. «Mi lealtad» muestra «Próximamente…».
-
-### Comandos y comprobaciones
+## Comandos y comprobaciones
 
 ```powershell
 npm test
@@ -81,7 +69,7 @@ Para revisar la interfaz en DevTools:
 
 El primer arranque del backend puede tardar; el cliente conserva un timeout de 90 segundos y permite reintentar. Un error de red o CORS no se sustituye por productos ficticios.
 
-### Resultado de esta revisión — 12 de noviembre de 2026
+## Resultado de esta revisión — 12 de noviembre de 2026
 
 `npm test`: 9/9 pruebas correctas. `npm run build`: TypeScript y compilación de producción correctos.
 
