@@ -9,13 +9,12 @@ import './connection.css'
 
 type PublicView = 'menu' | 'loyalty'
 
-function Icon({ name }: { name: PublicView | 'back' | 'leaf' | 'refresh' }) {
+function Icon({ name }: { name: PublicView | 'back' | 'leaf' }) {
   const paths = {
     menu: 'M5 3v7m3-7v7m3-7v7M5 7h6m-3 3v11M19 3c-3 3-4 7-4 10h4m0-10v18',
     loyalty: 'M12 20.5 4.5 13a4.8 4.8 0 0 1 6.8-6.8l.7.7.7-.7a4.8 4.8 0 0 1 6.8 6.8L12 20.5Z',
     back: 'm14 5-7 7 7 7M7 12h14',
     leaf: 'M12 21c-8-2-10-8-9-13 5 0 8 2 9 6m0 7c8-2 10-8 9-13-5 0-8 2-9 6m0 7V3m0 0c-3 3-4 7 0 11 4-4 3-8 0-11Z',
-    refresh: 'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3',
   }
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
@@ -158,8 +157,7 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
       {result.status === 'loading' && !displayData && <Loading />}
       {result.status === 'error' && <Failure message={result.message} retry={retry} />}
       {(result.status === 'success' || displayData) && (displayData?.product ? <ProductDetailContent key={displayData.product.product_id} product={displayData.product} currency={displayData.currency} /> : <div className="notice"><p>No se encontró información de este producto.</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>)}
-      <div className="detail-footer-actions"><button className="btn-outlined" onClick={close}><Icon name="back" />Volver al menú</button><button className="btn-outlined" onClick={retry}><Icon name="refresh" />Actualizar detalle</button></div>
-      {displayData?.product && <details className="json-details detail-diagnostic"><summary>Ver respuesta JSON del detalle</summary><pre>{JSON.stringify(displayData, null, 2)}</pre></details>}
+      <div className="detail-footer-actions"><button className="btn-outlined" onClick={close}><Icon name="back" />Volver al menú</button></div>
     </section>
   )
 }

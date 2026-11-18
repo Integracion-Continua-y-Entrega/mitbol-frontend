@@ -42,7 +42,7 @@ El menú consulta `GET /api/menu` y `GET /api/menu/{product_id}` sin sesión. El
 - Acceso por teclado, enlace para saltar al menú y contorno de foco visible.
 - Acceso al servidor de desarrollo desde la red local y proxy de Vite para consultar productos sin configurar CORS por cada IP de prueba.
 
-Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error. Los JSON de diagnóstico heredados siguen disponibles.
+Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error.
 
 Se integró `feature/fe1-panel-admin` en la rama móvil. `/admin` contiene el inicio de sesión y `/admin/dashboard` utiliza una ruta protegida. Se incluyen el catálogo administrativo, disponibilidad, descripciones, etiquetas, fotografías y QR del menú. Las etiquetas y fotografías administradas también se presentan en el menú público, que actualiza sus consultas al recibir avisos de cambios y periódicamente mientras la página está visible.
 
@@ -60,7 +60,7 @@ La portada presenta el catálogo real en una franja horizontal «Nuestra carta»
 
 Se verificó el nuevo menú a 320, 390, 440, 768 y 1280 px sin desbordamiento horizontal del documento. Se comprobó el cambio de presentación de la limonada a 500 ml (49.00 MXN), el regreso del foco al producto al cerrar el detalle y el diagnóstico de conexión en línea con su respuesta JSON. La consola del navegador no registró errores durante esta comprobación.
 
-La navegación móvil y de escritorio ofrece «Menú» y «Mi lealtad». El catálogo se consulta automáticamente al volver al menú y se sincroniza en segundo plano mientras la página está visible. «Mi lealtad» muestra «Próximamente…». El JSON de diagnóstico está disponible en el detalle del producto.
+La navegación móvil y de escritorio ofrece «Menú» y «Mi lealtad». El catálogo se consulta automáticamente al volver al menú y se sincroniza en segundo plano mientras la página está visible. «Mi lealtad» muestra «Próximamente…».
 
 ### Comandos y comprobaciones
 
