@@ -81,8 +81,6 @@ export function parseProduct(value: unknown): ProductResponse | null {
   return value as unknown as ProductResponse
 }
 
-export function parseHealth(value: unknown): unknown { return value }
-
 export function formatPrice(price: string | null, currency: string): string {
   // Se conserva la precisión decimal enviada por el backend, sin asumir moneda.
   return price === null ? 'Precio no informado' : `${price} ${currency}`
