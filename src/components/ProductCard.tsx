@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { formatRepresentativePrice, getProductTagNames, getRepresentativeImage } from '../services/menu'
+import ProductImage from './ProductImage'
+import { formatRepresentativePrice, getProductTagNames, getProductImageUrls } from '../services/menu'
 import type { MenuProduct } from '../services/menu'
+import { loadProductImageAlternatives } from '../services/productImages'
 
 export default function ProductCard({ product, currency, onSelect, selected = false, spotlight = false }: {
   product: MenuProduct
@@ -9,8 +10,7 @@ export default function ProductCard({ product, currency, onSelect, selected = fa
   selected?: boolean
   spotlight?: boolean
 }) {
-  const [failedImage, setFailedImage] = useState<string | null>(null)
-  const imageUrl = getRepresentativeImage(product)
+  const imageUrls = getProductImageUrls(product)
   const isAvailable = product.is_available && product.is_active
   const tags = getProductTagNames(product)
 
@@ -25,14 +25,12 @@ export default function ProductCard({ product, currency, onSelect, selected = fa
         onClick={(event) => onSelect(event.currentTarget)}
       >
         <span className="product-media">
-          {imageUrl && failedImage !== imageUrl ? (
-            <img src={imageUrl} alt="" className="product-image" loading="lazy" onError={() => setFailedImage(imageUrl)} />
-          ) : (
+          <ProductImage urls={imageUrls} alt="" className="product-image" loading="lazy" loadAlternatives={() => loadProductImageAlternatives(product.product_id)} fallback={
             <span className="product-placeholder">
               <img src="/mitbol-logo.png" alt="" />
               <span>Sin fotografía</span>
             </span>
-          )}
+          } />
         </span>
         <span className="product-body">
           <span className="product-name">{product.name}</span>

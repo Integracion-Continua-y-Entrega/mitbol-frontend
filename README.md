@@ -30,7 +30,7 @@ Conecta el teléfono y la computadora a la misma red Wi-Fi y ejecuta `npm run de
 
 El proxy solo existe con el servidor de desarrollo. El build de producción consulta directamente la URL configurada y requiere que el backend permita el origen publicado. La autenticación y las escrituras administrativas requieren una validación independiente de cookies y CSRF.
 
-El menú consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnóstico `GET /` sin sesión. El panel administrativo conserva sus solicitudes directas a Render con `credentials: "include"` y protección CSRF en escrituras. Para acceder al panel en desarrollo, utiliza `http://localhost:5173/admin`, un origen autorizado por el backend. El proxy de la red local se utiliza para el menú público; el inicio de sesión administrativo desde la IP del teléfono requiere validar CORS y cookies por separado.
+El menú consulta `GET /api/menu` y `GET /api/menu/{product_id}` sin sesión. El panel administrativo conserva sus solicitudes directas a Render con `credentials: "include"` y protección CSRF en escrituras. Para acceder al panel en desarrollo, utiliza `http://localhost:5173/admin`, un origen autorizado por el backend. El proxy de la red local se utiliza para el menú público; el inicio de sesión administrativo desde la IP del teléfono requiere validar CORS y cookies por separado.
 
 ## Alcance de los ajustes móviles
 
@@ -42,7 +42,7 @@ El menú consulta `GET /api/menu`, `GET /api/menu/{product_id}` y el diagnóstic
 - Acceso por teclado, enlace para saltar al menú y contorno de foco visible.
 - Acceso al servidor de desarrollo desde la red local y proxy de Vite para consultar productos sin configurar CORS por cada IP de prueba.
 
-Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error. Los JSON de diagnóstico heredados siguen disponibles.
+Se conserva el diseño de marca, el catálogo real, las presentaciones, los complementos, la disponibilidad y los estados de carga, vacío y error.
 
 Se integró `feature/fe1-panel-admin` en la rama móvil. `/admin` contiene el inicio de sesión y `/admin/dashboard` utiliza una ruta protegida. Se incluyen el catálogo administrativo, disponibilidad, descripciones, etiquetas, fotografías y QR del menú. Las etiquetas y fotografías administradas también se presentan en el menú público, que actualiza sus consultas al recibir avisos de cambios y periódicamente mientras la página está visible.
 
@@ -60,7 +60,7 @@ La portada presenta el catálogo real en una franja horizontal «Nuestra carta»
 
 Se verificó el nuevo menú a 320, 390, 440, 768 y 1280 px sin desbordamiento horizontal del documento. Se comprobó el cambio de presentación de la limonada a 500 ml (49.00 MXN), el regreso del foco al producto al cerrar el detalle y el diagnóstico de conexión en línea con su respuesta JSON. La consola del navegador no registró errores durante esta comprobación.
 
-Se mantiene temporalmente «Conexión» en la navegación móvil y de escritorio para la revisión: estado HTTP, consulta de la API, reintento y JSON de diagnóstico. También se conserva el JSON del detalle. No se copiaron del prototipo precios, fotografías de otros productos, declaraciones de IVA, nutrición, alérgenos específicos, categorías ni funciones de fidelización que la API o el alcance actual no respaldan.
+La navegación móvil y de escritorio ofrece «Menú» y «Mi lealtad». El catálogo se consulta automáticamente al volver al menú y se sincroniza en segundo plano mientras la página está visible. «Mi lealtad» muestra «Próximamente…».
 
 ### Comandos y comprobaciones
 
@@ -109,7 +109,7 @@ El flujo de trabajo es: rama de trabajo → PR a `develop` → checks aprobados 
 2. En Render, selecciona **New → Blueprint**, conecta este repositorio mediante la integración de GitHub y elige la rama `develop`. Usa `render.yaml` y revisa el servicio antes de crearlo. No crees un segundo servicio si el frontend ya existe: configura el existente con los valores de la tabla.
 3. La configuración utiliza **After CI Checks Pass** (`autoDeployTrigger: checksPass`): los siguientes cambios de `develop` se despliegan únicamente después de que sus checks pasen. No se requieren deploy hooks ni secretos de Render en GitHub Actions.
 4. Copia el origen HTTPS real que asigne Render y pide al responsable del backend que lo añada a los orígenes CORS, conservando localhost y los demás orígenes válidos. No uses una URL supuesta.
-5. Comprueba el menú, un detalle, Conexión y la recarga directa de `/admin`. El inicio de sesión y las escrituras administrativas requieren verificar además las cookies y CSRF desde el nuevo dominio.
+5. Comprueba el menú, un detalle, Mi lealtad y la recarga directa de `/admin`. El inicio de sesión y las escrituras administrativas requieren verificar además las cookies y CSRF desde el nuevo dominio.
 
 | Configuración | Valor |
 | --- | --- |

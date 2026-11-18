@@ -81,11 +81,23 @@ export function parseProduct(value: unknown): ProductResponse | null {
   return value as unknown as ProductResponse
 }
 
-export function parseHealth(value: unknown): unknown { return value }
-
 export function formatPrice(price: string | null, currency: string): string {
   // Se conserva la precisión decimal enviada por el backend, sin asumir moneda.
   return price === null ? 'Precio no informado' : `${price} ${currency}`
+}
+
+export function sumMenuPrices(prices: (string | null)[]): string | null {
+  const decimals: { units: bigint; scale: number }[] = []
+  for (const price of prices) {
+    if (price === null || !/^\d+(\.\d+)?$/.test(price)) return null
+    const [whole, fraction = ''] = price.split('.')
+    decimals.push({ units: BigInt(whole + fraction), scale: fraction.length })
+  }
+
+  const scale = decimals.reduce((max, decimal) => Math.max(max, decimal.scale), 2)
+  const total = decimals.reduce((sum, decimal) => sum + decimal.units * 10n ** BigInt(scale - decimal.scale), 0n)
+  const amount = total.toString().padStart(scale + 1, '0')
+  return `${amount.slice(0, -scale)}.${amount.slice(-scale)}`
 }
 
 export function resolveMediaUrl(url: string | null | undefined): string | null {
@@ -114,23 +126,32 @@ export function formatRepresentativePrice(item: MenuProduct, currency: string): 
   return formatPrice(item.price_min, currency)
 }
 
-export function getRepresentativeImage(item: MenuProduct, selectedVariant?: MenuVariant | null): string | null {
-  if (selectedVariant) {
-    if (selectedVariant.image_url) return resolveMediaUrl(selectedVariant.image_url)
-    if (Array.isArray(selectedVariant.images)) {
-      for (const img of selectedVariant.images) {
-        if (typeof img === 'string' && img.trim()) return resolveMediaUrl(img)
-        if (record(img) && typeof img.image_url === 'string' && img.image_url.trim()) {
-          return resolveMediaUrl(img.image_url)
-        }
-      }
+export function getProductImageUrls(item: MenuProduct, selectedVariant?: MenuVariant | null): string[] {
+  const urls = new Set<string>()
+  const add = (value: unknown) => {
+    if (typeof value !== 'string') return
+    const url = resolveMediaUrl(value)
+    if (url) urls.add(url)
+  }
+  const addVariant = (variant: MenuVariant) => {
+    add(variant.image_url)
+    for (const photo of variant.images ?? []) {
+      add(record(photo) ? photo.image_url : photo)
     }
   }
-  if (item.image_url) return resolveMediaUrl(item.image_url)
-  for (const v of item.variants) {
-    if (v.image_url) return resolveMediaUrl(v.image_url)
+
+  if (selectedVariant) {
+    // El detalle no debe mostrar una foto de otra presentación por error.
+    addVariant(selectedVariant)
+  } else {
+    add(item.image_url)
+    item.variants.forEach(addVariant)
   }
-  return null
+  return [...urls]
+}
+
+export function getRepresentativeImage(item: MenuProduct, selectedVariant?: MenuVariant | null): string | null {
+  return getProductImageUrls(item, selectedVariant)[0] ?? null
 }
 
 export function getVariantTagNames(v: MenuVariant | null | undefined): string[] {
@@ -156,7 +177,7 @@ export function getProductTagNames(item: MenuProduct): string[] {
   return Array.from(all)
 }
 
-export function normalizeVariantModifiers(rawModifiers?: unknown[]): NormalizedModifierGroup[] {
+export function normalizeVariantModifiers(rawModifiers?: unknown[], variantId?: number): NormalizedModifierGroup[] {
   if (!Array.isArray(rawModifiers)) return []
 
   return rawModifiers.flatMap((mod, modIdx) => {
@@ -176,32 +197,20 @@ export function normalizeVariantModifiers(rawModifiers?: unknown[]): NormalizedM
         : typeof rawPrice === 'number'
           ? rawPrice.toFixed(2)
           : null
-      const isAvailable = typeof opt.can_order === 'boolean'
-        ? opt.can_order
-        : typeof opt.is_available === 'boolean'
-          ? opt.is_available
-          : typeof opt.is_active === 'boolean'
-            ? opt.is_active
-            : true
+      const isAvailable = opt.can_order !== false && opt.is_available !== false && opt.is_active !== false
 
       return [{
-        id: String(opt.product_complement_id ?? opt.complement_id ?? opt.id ?? `${modIdx}-${optIdx}`),
+        id: String(opt.product_complement_id ?? opt.complement_id ?? opt.id ?? `variant-${variantId}-option-${modIdx}-${optIdx}`),
         name: opt.name,
         price: priceStr,
         isAvailable,
       }]
     })
 
-    const groupAvailable = typeof mod.is_available === 'boolean'
-      ? mod.is_available
-      : typeof mod.is_active === 'boolean'
-        ? mod.is_active
-        : true
-
     return [{
-      id: String(mod.product_modifier_id ?? mod.modifier_id ?? mod.id ?? modIdx),
+      id: String(mod.product_modifier_id ?? mod.modifier_id ?? mod.id ?? `variant-${variantId}-group-${modIdx}`),
       name: mod.name,
-      isAvailable: groupAvailable,
+      isAvailable: mod.can_order !== false && mod.is_available !== false && mod.is_active !== false,
       complements,
     }]
   })

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct } from '../src/services/menu.ts'
+import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -23,10 +23,54 @@ test('resuelve fotografías relativas del administrador y conserva URLs completa
   assert.equal(getRepresentativeImage(fixture), null)
 })
 
+test('incluye toda la galería sin repetir la foto principal para intentar alternativas', () => {
+  const item = {
+    ...fixture,
+    image_url: '/media/principal.jpg',
+    variants: [{
+      ...fixture.variants[0], image_url: '/media/principal.jpg',
+      images: [{ image_url: '/media/principal.jpg' }, { image_url: '/media/respaldo.jpg' }, '/media/otra.jpg', null, { image_url: '' }],
+    }],
+  }
+  assert.deepEqual(getProductImageUrls(item), [
+    'https://mitbol-backend.onrender.com/media/principal.jpg',
+    'https://mitbol-backend.onrender.com/media/respaldo.jpg',
+    'https://mitbol-backend.onrender.com/media/otra.jpg',
+  ])
+})
+
+test('el catálogo considera galerías de otras variantes; el detalle conserva la variante elegida', () => {
+  const first = { ...fixture.variants[0], image_url: '/media/sencilla.jpg', images: [] }
+  const second = { ...fixture.variants[0], product_variant_id: 9, image_url: '/media/doble.jpg', images: [{ image_url: '/media/doble-alternativa.jpg' }] }
+  const item = { ...fixture, image_url: first.image_url, variants: [first, second] }
+  assert.equal(getProductImageUrls(item).length, 3)
+  assert.deepEqual(getProductImageUrls(item, first), ['https://mitbol-backend.onrender.com/media/sencilla.jpg'])
+  assert.deepEqual(getProductImageUrls(item, second), [
+    'https://mitbol-backend.onrender.com/media/doble.jpg',
+    'https://mitbol-backend.onrender.com/media/doble-alternativa.jpg',
+  ])
+})
+
 test('un complemento bloqueado por backend no se muestra como disponible', () => {
   const groups = normalizeVariantModifiers([{ name: 'Extras', complements: [{ name: 'Queso', price: '5.00', can_order: false, is_available: true }] }])
   assert.equal(groups[0].complements[0].isAvailable, false)
   assert.equal(groups[0].complements[0].price, '5.00')
+})
+
+test('respeta grupos bloqueados y no comparte identificadores generados entre variantes', () => {
+  const modifiers = [{ name: 'Extras', can_order: false, complements: [{ name: 'Queso', price: '5.00' }] }]
+  const [first] = normalizeVariantModifiers(modifiers, 4)
+  const [second] = normalizeVariantModifiers(modifiers, 5)
+  assert.equal(first.isAvailable, false)
+  assert.notEqual(first.id, second.id)
+  assert.notEqual(first.complements[0].id, second.complements[0].id)
+})
+
+test('suma precios de variante y extras con precisión decimal y detecta precios ausentes', () => {
+  assert.equal(sumMenuPrices(['129.00', '15.00', '20.00', '0.00']), '164.00')
+  assert.equal(sumMenuPrices(['0.1', '0.20', '0.005']), '0.305')
+  assert.equal(sumMenuPrices(['89.00', null]), null)
+  assert.equal(sumMenuPrices(['89.00', '']), null)
 })
 
 test('construye URLs sin barras duplicadas y consulta sin credenciales', async () => {
