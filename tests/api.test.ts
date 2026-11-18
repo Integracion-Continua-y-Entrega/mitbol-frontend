@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct } from '../src/services/menu.ts'
+import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -55,6 +55,22 @@ test('un complemento bloqueado por backend no se muestra como disponible', () =>
   const groups = normalizeVariantModifiers([{ name: 'Extras', complements: [{ name: 'Queso', price: '5.00', can_order: false, is_available: true }] }])
   assert.equal(groups[0].complements[0].isAvailable, false)
   assert.equal(groups[0].complements[0].price, '5.00')
+})
+
+test('respeta grupos bloqueados y no comparte identificadores generados entre variantes', () => {
+  const modifiers = [{ name: 'Extras', can_order: false, complements: [{ name: 'Queso', price: '5.00' }] }]
+  const [first] = normalizeVariantModifiers(modifiers, 4)
+  const [second] = normalizeVariantModifiers(modifiers, 5)
+  assert.equal(first.isAvailable, false)
+  assert.notEqual(first.id, second.id)
+  assert.notEqual(first.complements[0].id, second.complements[0].id)
+})
+
+test('suma precios de variante y extras con precisión decimal y detecta precios ausentes', () => {
+  assert.equal(sumMenuPrices(['129.00', '15.00', '20.00', '0.00']), '164.00')
+  assert.equal(sumMenuPrices(['0.1', '0.20', '0.005']), '0.305')
+  assert.equal(sumMenuPrices(['89.00', null]), null)
+  assert.equal(sumMenuPrices(['89.00', '']), null)
 })
 
 test('construye URLs sin barras duplicadas y consulta sin credenciales', async () => {

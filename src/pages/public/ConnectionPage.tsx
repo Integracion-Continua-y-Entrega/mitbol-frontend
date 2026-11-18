@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
 import ProductImage from '../../components/ProductImage'
 import { API_URL } from '../../services/config'
-import { formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, normalizeVariantModifiers, parseHealth, parseMenu, parseProduct } from '../../services/menu'
+import { formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, normalizeVariantModifiers, parseHealth, parseMenu, parseProduct, sumMenuPrices } from '../../services/menu'
 import type { MenuProduct, MenuResponse, ProductResponse } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import { useMenuSync } from '../../services/useMenuSync'
@@ -49,11 +49,28 @@ function BackendStatus() {
 
 function ProductDetailContent({ product, currency }: { product: MenuProduct; currency: string }) {
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(product.variants[0]?.product_variant_id ?? null)
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const selectedVariant = product.variants.find(v => v.product_variant_id === selectedVariantId) ?? product.variants[0] ?? null
   const imageUrls = getProductImageUrls(product, selectedVariant)
-  const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers)
   const variantTags = getVariantTagNames(selectedVariant)
   const isProductAvailable = product.is_active && product.is_available
+  const canCustomize = isProductAvailable && product.can_order && selectedVariant?.is_available === true && selectedVariant.can_order
+  const modifierGroups = normalizeVariantModifiers(selectedVariant?.modifiers, selectedVariant?.product_variant_id).map(group => ({
+    ...group,
+    complements: group.complements.map(option => ({
+      ...option,
+      key: JSON.stringify([group.id, option.id]),
+      isAvailable: canCustomize && group.isAvailable && option.isAvailable,
+    })),
+  }))
+  const selectedComplements = modifierGroups.flatMap(group => group.complements)
+    .filter(option => option.isAvailable && selectedOptions.includes(option.key))
+  if (selectedComplements.length !== selectedOptions.length) {
+    setSelectedOptions(selectedComplements.map(option => option.key))
+  }
+  const price = selectedVariant && selectedComplements.length > 0
+    ? sumMenuPrices([selectedVariant.price, ...selectedComplements.map(option => option.price)])
+    : selectedVariant?.price ?? null
 
   return (
     <div className="product-detail-card">
@@ -68,12 +85,19 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
       </div>
       <div className="detail-sheet">
         <div className="detail-title-row">
-          <div><p className="eyebrow">De nuestra cocina</p><h2>{product.name}</h2></div>
-          <p className="price detail-price">{selectedVariant ? formatPrice(selectedVariant.price, currency) : formatRepresentativePrice(product, currency)}</p>
+          <div>
+            <p className="eyebrow">De nuestra cocina</p>
+            <h2>{product.name}</h2>
+            {selectedVariant && <p className="muted selected-variant-name">{selectedVariant.name}</p>}
+          </div>
+          <p className="price detail-price">
+            {selectedComplements.length > 0 && <span>Importe estimado</span>}
+            {selectedVariant ? formatPrice(price, currency) : formatRepresentativePrice(product, currency)}
+          </p>
         </div>
         <span className={`availability ${isProductAvailable ? 'available' : 'sold-out'}`}>{!product.is_active ? 'Producto inactivo' : product.is_available ? 'Disponible' : 'Agotado'}</span>
         {variantTags.length > 0 && <div className="public-tags-row" aria-label="Etiquetas de la presentación">{variantTags.map(tag => <span className="public-tag-pill" key={tag}>{tag}</span>)}</div>}
-        <p className="detail-description">{product.description?.trim() || 'Descripción no disponible.'}</p>
+        {product.variants.length <= 1 && product.description?.trim() && <p className="detail-description">{product.description}</p>}
         {!isProductAvailable && <p className="notice sold-out-banner" role="status">Este producto no está disponible actualmente. Puedes consultar sus presentaciones y complementos.</p>}
         <section className="detail-section" aria-labelledby="variants-heading">
           <h3 id="variants-heading">Presentaciones <span className="count-badge">{product.variants.length}</span></h3>
@@ -84,9 +108,47 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
           })}</div> : <p className="muted">Este producto no tiene variantes registradas.</p>}
         </section>
         <section className="detail-section" aria-labelledby="modifiers-heading">
-          <div className="options-heading"><h3 id="modifiers-heading">Opciones adicionales</h3><span>Consulta a tu mesero</span></div>
-          {selectedVariant && <p className="muted variant-context">Complementos de {selectedVariant.name}</p>}
-          {modifierGroups.length > 0 ? <div className="modifiers-list">{modifierGroups.map(group => <div key={group.id} className="modifier-group"><div className="modifier-group-header"><h4>{group.name}</h4>{!group.isAvailable && <span className="availability sold-out">No disponible</span>}</div>{group.complements.length > 0 ? <ul className="complements">{group.complements.map(comp => <li key={comp.id}><span><strong>{comp.name}</strong><small className={!group.isAvailable || !comp.isAvailable ? 'unavailable' : ''}>{group.isAvailable && comp.isAvailable ? 'Disponible' : 'No disponible'}</small></span><span className="complement-price">{comp.price === null ? 'Precio no informado' : Number(comp.price) > 0 ? `+ ${formatPrice(comp.price, currency)}` : 'Sin costo extra'}</span></li>)}</ul> : <p className="muted">Sin opciones registradas en este grupo.</p>}</div>)}</div> : <p className="muted">Esta presentación no cuenta con complementos o modificadores adicionales.</p>}
+          <div className="options-heading"><h3 id="modifiers-heading">Opciones adicionales</h3></div>
+          {modifierGroups.length > 0 ? (
+            <div className="modifiers-list">
+              {modifierGroups.map(group => (
+                <div key={group.id}>
+                  <div className="modifier-group-header">
+                    <h4>{group.name}</h4>
+                    {!group.isAvailable && <span className="availability sold-out">No disponible</span>}
+                  </div>
+                  {group.complements.length > 0 ? (
+                    <ul className="complements">
+                      {group.complements.map(option => (
+                        <li key={option.key}>
+                          <label className="complement-option">
+                            <input
+                              type="checkbox"
+                              checked={option.isAvailable && selectedOptions.includes(option.key)}
+                              disabled={!option.isAvailable}
+                              onChange={(event) => {
+                                const checked = event.currentTarget.checked
+                                setSelectedOptions(current => checked
+                                  ? [...current, option.key]
+                                  : current.filter(key => key !== option.key))
+                              }}
+                            />
+                            <span className="complement-name">
+                              <strong>{option.name}</strong>
+                              {!option.isAvailable && <small className="unavailable">No disponible</small>}
+                            </span>
+                            <span className="complement-price">
+                              {option.price === null ? 'Precio no informado' : Number(option.price) === 0 ? 'Sin costo extra' : `+ ${formatPrice(option.price, currency)}`}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="muted">Sin opciones registradas en este grupo.</p>}
+                </div>
+              ))}
+            </div>
+          ) : <p className="muted">Esta presentación no cuenta con complementos o modificadores adicionales.</p>}
         </section>
         <p className="detail-service-note">Para ordenar o consultar alérgenos, comunícate con nuestro personal de sala.</p>
       </div>
