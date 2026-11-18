@@ -31,11 +31,22 @@ export default function ProductCard({ product, currency, onSelect, selected = fa
               <span>Sin fotografía</span>
             </span>
           } />
+          {(product.is_featured || product.is_new) && (
+            <span className="highlight-badges">
+              {product.is_featured && <span className="highlight-badge featured">★ Destacado</span>}
+              {product.is_new && <span className="highlight-badge new-item">✦ Nuevo</span>}
+            </span>
+          )}
         </span>
         <span className="product-body">
           <span className="product-name">{product.name}</span>
-          <span className={`availability ${isAvailable ? 'available' : 'sold-out'}`}>
-            {!product.is_active ? 'No activo' : isAvailable ? 'Disponible' : 'Agotado'}
+          <span className="product-meta-pills">
+            <span className={`availability ${isAvailable ? 'available' : 'sold-out'}`}>
+              {!product.is_active ? 'No activo' : isAvailable ? 'Disponible' : 'Agotado'}
+            </span>
+            {product.category && (
+              <span className="category-pill">{product.category.name}</span>
+            )}
           </span>
           {tags.length > 0 && <span className="public-tags-row" aria-label="Etiquetas del producto">{tags.map(tag => <span className="public-tag-pill" key={tag}>{tag}</span>)}</span>}
           <span className="description">{product.description?.trim() || 'Consulta sus presentaciones y complementos.'}</span>

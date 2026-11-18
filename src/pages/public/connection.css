@@ -206,8 +206,109 @@ h3 { font-size: 1.05rem; }
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
 
-/* Etiquetas compartidas entre el catálogo y la administración. */
+/* Etiquetas compartidas entre el catálogo y la administración */
 .public-tags-row, .variant-mini-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0; }
 .public-tag-pill, .variant-mini-tag { display: inline-flex; font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 99px; background: var(--mitbol-primary-soft); color: var(--mitbol-primary-dark); border: 1px solid #627d3230; }
 .spotlight-card .public-tags-row { margin: 0; }
 .detail-sheet > .public-tags-row { margin-top: 14px; }
+
+/* Filtros públicos, Categorías e Indicadores Destacados */
+.menu-filters-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.menu-search-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.menu-search-input {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--mitbol-border, #cbd5e1);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: inherit;
+}
+
+.menu-search-input:focus {
+  outline: 2px solid var(--mitbol-primary, #627d32);
+}
+
+.catalog-chip {
+  cursor: pointer;
+  border: 1px solid var(--mitbol-border, #cbd5e1);
+  background: #ffffff;
+  font-family: inherit;
+}
+
+.catalog-chip.active {
+  background: var(--mitbol-primary, #627d32);
+  color: #ffffff;
+  border-color: var(--mitbol-primary, #627d32);
+}
+
+.filter-tag-btn {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-tag-btn.selected {
+  background: var(--mitbol-primary, #627d32);
+  color: #ffffff;
+  border-color: var(--mitbol-primary, #627d32);
+}
+
+.product-meta-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.highlight-badges {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  z-index: 2;
+}
+
+.highlight-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+}
+
+.highlight-badge.featured {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.highlight-badge.new-item {
+  background: #a3e635;
+  color: #1e293b;
+}

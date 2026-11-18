@@ -1,7 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ProductCard from '../../components/ProductCard'
 import ProductImage from '../../components/ProductImage'
-import { formatPrice, formatRepresentativePrice, getProductImageUrls, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../../services/menu'
+import {
+  buildMenuQueryPath,
+  formatPrice,
+  formatRepresentativePrice,
+  getProductImageUrls,
+  getVariantTagNames,
+  normalizeVariantModifiers,
+  parseCategories,
+  parseMenu,
+  parseMenuTags,
+  parseProduct,
+  sumMenuPrices,
+} from '../../services/menu'
 import type { MenuProduct, MenuResponse, ProductResponse } from '../../services/menu'
 import { useApi } from '../../services/useApi'
 import { useMenuSync } from '../../services/useMenuSync'
@@ -70,7 +82,9 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
       <div className="detail-sheet">
         <div className="detail-title-row">
           <div>
-            <p className="eyebrow">De nuestra cocina</p>
+            <p className="eyebrow">
+              {product.category ? product.category.name : 'De nuestra cocina'}
+            </p>
             <h2>{product.name}</h2>
             {selectedVariant && <p className="muted selected-variant-name">{selectedVariant.name}</p>}
           </div>
@@ -79,9 +93,14 @@ function ProductDetailContent({ product, currency }: { product: MenuProduct; cur
             {selectedVariant ? formatPrice(price, currency) : formatRepresentativePrice(product, currency)}
           </p>
         </div>
-        <span className={`availability ${isProductAvailable ? 'available' : 'sold-out'}`}>{!product.is_active ? 'Producto inactivo' : product.is_available ? 'Disponible' : 'Agotado'}</span>
+        <div className="product-meta-pills">
+          <span className={`availability ${isProductAvailable ? 'available' : 'sold-out'}`}>{!product.is_active ? 'Producto inactivo' : product.is_available ? 'Disponible' : 'Agotado'}</span>
+          {product.is_featured && <span className="highlight-badge featured">★ Destacado</span>}
+          {product.is_new && <span className="highlight-badge new-item">✦ Nuevo</span>}
+          {product.category && <span className="category-pill">{product.category.name}</span>}
+        </div>
         {variantTags.length > 0 && <div className="public-tags-row" aria-label="Etiquetas de la presentación">{variantTags.map(tag => <span className="public-tag-pill" key={tag}>{tag}</span>)}</div>}
-        {product.variants.length <= 1 && product.description?.trim() && <p className="detail-description">{product.description}</p>}
+        {product.description?.trim() && <p className="detail-description">{product.description}</p>}
         {!isProductAvailable && <p className="notice sold-out-banner" role="status">Este producto no está disponible actualmente. Puedes consultar sus presentaciones y complementos.</p>}
         <section className="detail-section" aria-labelledby="variants-heading">
           <h3 id="variants-heading">Presentaciones <span className="count-badge">{product.variants.length}</span></h3>
@@ -163,14 +182,68 @@ function ProductDetail({ id, close }: { id: number; close: () => void }) {
 }
 
 export default function ConnectionPage() {
-  const { result, retry } = useApi('/api/menu', parseMenu)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
+  const [uncategorizedOnly, setUncategorizedOnly] = useState(false)
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
+
+  const menuPath = useMemo(
+    () =>
+      buildMenuQueryPath({
+        q: searchQuery,
+        categoryId: selectedCategoryId,
+        uncategorized: uncategorizedOnly,
+        tagIds: selectedTagIds,
+      }),
+    [searchQuery, selectedCategoryId, uncategorizedOnly, selectedTagIds]
+  )
+
+  const { result, retry } = useApi(menuPath, parseMenu)
+  const { result: categoriesResult, retry: retryCategories } = useApi('/api/categories', parseCategories)
+  const { result: tagsResult, retry: retryTags } = useApi('/api/menu/tags', parseMenuTags)
+
   const [cachedMenu, setCachedMenu] = useState<MenuResponse | null>(null)
   if (result.status === 'success' && result.data !== cachedMenu) setCachedMenu(result.data)
   const activeMenu = result.status === 'success' ? result.data : cachedMenu
-  useMenuSync(retry, result.status !== 'loading')
+
+  const categories = categoriesResult.status === 'success' && categoriesResult.data ? categoriesResult.data.categories : []
+  const menuTags = tagsResult.status === 'success' && tagsResult.data ? tagsResult.data : []
+
+  const refreshAll = () => {
+    retry()
+    retryCategories()
+    retryTags()
+  }
+
+  useMenuSync(refreshAll, result.status !== 'loading')
+
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [view, setView] = useState<PublicView>('menu')
   const selectedButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() || selectedCategoryId !== null || uncategorizedOnly || selectedTagIds.length > 0
+  )
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedCategoryId(null)
+    setUncategorizedOnly(false)
+    setSelectedTagIds([])
+  }
+
+  const toggleTagFilter = (tagId: number) => {
+    setSelectedTagIds(current =>
+      current.includes(tagId) ? current.filter(id => id !== tagId) : [...current, tagId]
+    )
+  }
+
+  const spotlightProducts = useMemo(() => {
+    if (!activeMenu) return []
+    const featured = activeMenu.products.filter(p => p.is_featured || p.is_new)
+    return featured.length > 0 ? featured : activeMenu.products
+  }, [activeMenu])
+
   const closeDetail = () => {
     setSelectedId(null)
     if (result.status !== 'loading') retry()
@@ -201,13 +274,132 @@ export default function ConnectionPage() {
             <div className="section-heading showcase-heading"><h1 id="catalog-heading" tabIndex={-1}>Nuestra carta <span aria-hidden="true" className="orange-star">✦</span></h1><a href="#menu-list">Ver todos <span aria-hidden="true">›</span></a></div>
             {result.status === 'loading' && !activeMenu && <Loading />}
             {result.status === 'error' && <Failure message={result.message} retry={retry} />}
-            {(result.status === 'success' || activeMenu) && (activeMenu && activeMenu.products.length > 0 ? <>
-              <div className="spotlight-track" role="group" aria-label="Explorar productos">{activeMenu.products.map(product => <ProductCard key={product.product_id} product={product} currency={activeMenu.currency} spotlight onSelect={button => selectProduct(product.product_id, button)} />)}</div>
-              <div className="catalog-toolbar"><a className="catalog-chip" href="#menu-list">Todos los productos</a></div>
-              <div id="menu-list" className="section-heading menu-list-heading"><h2>Nuestro menú</h2><span className="count-badge">{activeMenu.products.length} {activeMenu.products.length === 1 ? 'opción' : 'opciones'}</span></div>
-              <div className="product-grid">{activeMenu.products.map(product => <ProductCard key={product.product_id} product={product} currency={activeMenu.currency} onSelect={button => selectProduct(product.product_id, button)} />)}</div>
-              <p className="catalog-meta">Precios en {activeMenu.currency} · Consulta cada presentación en el detalle.</p>
-            </> : <div className="notice"><p>Aún no existen productos publicados en el menú.</p><button className="btn-primary" onClick={retry}>Reintentar</button></div>)}
+            {(result.status === 'success' || activeMenu) && activeMenu && (
+              <>
+                {spotlightProducts.length > 0 && !hasActiveFilters && (
+                  <div className="spotlight-track" role="group" aria-label="Productos destacados y novedades">
+                    {spotlightProducts.map(product => (
+                      <ProductCard
+                        key={product.product_id}
+                        product={product}
+                        currency={activeMenu.currency}
+                        spotlight
+                        onSelect={button => selectProduct(product.product_id, button)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Barra de búsqueda, categorías (/api/categories) y etiquetas (/api/menu/tags) */}
+                <div className="menu-filters-bar" role="search" aria-label="Filtrar platillos del menú">
+                  <div className="menu-search-row">
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Buscar platillo por nombre…"
+                      aria-label="Buscar platillo por nombre"
+                      className="menu-search-input"
+                    />
+                    {hasActiveFilters && (
+                      <button type="button" className="btn-outlined btn-sm" onClick={clearFilters}>
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="catalog-toolbar" role="group" aria-label="Categorías del menú">
+                    <button
+                      type="button"
+                      className={`catalog-chip ${selectedCategoryId === null && !uncategorizedOnly ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedCategoryId(null)
+                        setUncategorizedOnly(false)
+                      }}
+                    >
+                      Todos los productos
+                    </button>
+                    {categories.map(cat => (
+                      <button
+                        key={cat.category_id}
+                        type="button"
+                        className={`catalog-chip ${selectedCategoryId === cat.category_id && !uncategorizedOnly ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedCategoryId(cat.category_id)
+                          setUncategorizedOnly(false)
+                        }}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={`catalog-chip ${uncategorizedOnly ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedCategoryId(null)
+                        setUncategorizedOnly(prev => !prev)
+                      }}
+                    >
+                      Sin categoría
+                    </button>
+                  </div>
+
+                  {menuTags.length > 0 && (
+                    <div className="catalog-toolbar tags-filter-toolbar" role="group" aria-label="Filtrar por etiquetas">
+                      {menuTags.map(tag => {
+                        const isTagSelected = selectedTagIds.includes(tag.tag_id)
+                        return (
+                          <button
+                            key={tag.tag_id}
+                            type="button"
+                            aria-pressed={isTagSelected}
+                            className={`public-tag-pill filter-tag-btn ${isTagSelected ? 'selected' : ''}`}
+                            onClick={() => toggleTagFilter(tag.tag_id)}
+                          >
+                            {isTagSelected ? '✓ ' : '# '}
+                            {tag.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div id="menu-list" className="section-heading menu-list-heading">
+                  <h2>Nuestro menú</h2>
+                  <span className="count-badge">
+                    {activeMenu.products.length} {activeMenu.products.length === 1 ? 'opción' : 'opciones'}
+                  </span>
+                </div>
+
+                {activeMenu.products.length > 0 ? (
+                  <>
+                    <div className="product-grid">
+                      {activeMenu.products.map(product => (
+                        <ProductCard
+                          key={product.product_id}
+                          product={product}
+                          currency={activeMenu.currency}
+                          onSelect={button => selectProduct(product.product_id, button)}
+                        />
+                      ))}
+                    </div>
+                    <p className="catalog-meta">Precios en {activeMenu.currency} · Consulta cada presentación en el detalle.</p>
+                  </>
+                ) : (
+                  <div className="notice">
+                    <p>
+                      {hasActiveFilters
+                        ? 'No se encontraron platillos que coincidan con los filtros seleccionados.'
+                        : 'Aún no existen productos publicados en el menú.'}
+                    </p>
+                    <button className="btn-primary" onClick={hasActiveFilters ? clearFilters : retry}>
+                      {hasActiveFilters ? 'Ver todo el menú' : 'Reintentar'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </section>
           <aside className="menu-note"><Icon name="leaf" /><p>Si tienes alguna intolerancia o alergia alimentaria, consulta con el personal de sala.</p></aside>
         </div>

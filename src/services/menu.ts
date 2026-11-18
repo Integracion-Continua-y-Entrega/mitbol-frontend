@@ -1,5 +1,20 @@
 import { ApiError } from './api.ts'
 
+export interface MenuCategory {
+  category_id: number
+  name: string
+  color: string | null
+}
+
+export interface MenuCategoriesResponse {
+  categories: MenuCategory[]
+}
+
+export interface MenuTag {
+  tag_id: number
+  name: string
+}
+
 export interface MenuVariant {
   product_variant_id: number
   name: string
@@ -24,6 +39,9 @@ export interface MenuProduct {
   price_max: string | null
   has_price_range: boolean
   variants: MenuVariant[]
+  category?: MenuCategory | null
+  is_featured?: boolean
+  is_new?: boolean
 }
 
 export interface MenuResponse { currency: string; products: MenuProduct[] }
@@ -43,12 +61,35 @@ export interface NormalizedModifierGroup {
   complements: NormalizedComplement[]
 }
 
+export interface MenuFilterParams {
+  q?: string
+  tagIds?: number[]
+  categoryId?: number | null
+  uncategorized?: boolean
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === 'string'
+}
+
+function optionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean'
+}
+
+function category(value: unknown): value is MenuCategory {
+  return record(value) && Number.isInteger(value.category_id) && typeof value.name === 'string' && nullableString(value.color)
+}
+
+function optionalCategory(value: unknown): boolean {
+  return value === undefined || value === null || category(value)
+}
+
+function menuTag(value: unknown): value is MenuTag {
+  return record(value) && Number.isInteger(value.tag_id) && typeof value.name === 'string'
 }
 
 function variant(value: unknown): boolean {
@@ -63,6 +104,7 @@ function product(value: unknown): boolean {
     && typeof value.is_active === 'boolean' && typeof value.is_available === 'boolean'
     && typeof value.can_order === 'boolean' && nullableString(value.price_min) && nullableString(value.price_max)
     && typeof value.has_price_range === 'boolean' && Array.isArray(value.variants) && value.variants.every(variant)
+    && optionalCategory(value.category) && optionalBoolean(value.is_featured) && optionalBoolean(value.is_new)
 }
 
 export function parseMenu(value: unknown): MenuResponse | null {
@@ -81,8 +123,43 @@ export function parseProduct(value: unknown): ProductResponse | null {
   return value as unknown as ProductResponse
 }
 
+export function parseCategories(value: unknown): MenuCategoriesResponse | null {
+  if (value === null) return null
+  if (!record(value) || !Array.isArray(value.categories) || !value.categories.every(category)) {
+    throw new ApiError('La respuesta de categorías no coincide con el contrato público esperado.')
+  }
+  return value as unknown as MenuCategoriesResponse
+}
+
+export function parseMenuTags(value: unknown): MenuTag[] | null {
+  if (value === null) return null
+  if (!Array.isArray(value) || !value.every(menuTag)) {
+    throw new ApiError('La respuesta de etiquetas del menú no coincide con el contrato público esperado.')
+  }
+  return value as MenuTag[]
+}
+
+export function buildMenuQueryPath(filters: MenuFilterParams = {}): string {
+  const params = new URLSearchParams()
+  const q = filters.q?.trim()
+  if (q) params.set('q', q)
+  if (filters.uncategorized) {
+    params.set('uncategorized', 'true')
+  } else if (typeof filters.categoryId === 'number' && filters.categoryId > 0) {
+    params.set('category_id', String(filters.categoryId))
+  }
+  if (Array.isArray(filters.tagIds)) {
+    for (const id of filters.tagIds) {
+      if (Number.isInteger(id) && id > 0) {
+        params.append('tag_id', String(id))
+      }
+    }
+  }
+  const qs = params.toString()
+  return qs ? `/api/menu?${qs}` : '/api/menu'
+}
+
 export function formatPrice(price: string | null, currency: string): string {
-  // Se conserva la precisión decimal enviada por el backend, sin asumir moneda.
   return price === null ? 'Precio no informado' : `${price} ${currency}`
 }
 
@@ -141,7 +218,6 @@ export function getProductImageUrls(item: MenuProduct, selectedVariant?: MenuVar
   }
 
   if (selectedVariant) {
-    // El detalle no debe mostrar una foto de otra presentación por error.
     addVariant(selectedVariant)
   } else {
     add(item.image_url)

@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ApiError, createApiClient, normalizeApiUrl } from '../src/services/api.ts'
-import { getProductImageUrls, getProductTagNames, getRepresentativeImage, getVariantTagNames, normalizeVariantModifiers, parseMenu, parseProduct, sumMenuPrices } from '../src/services/menu.ts'
+import {
+  buildMenuQueryPath,
+  getProductImageUrls,
+  getProductTagNames,
+  getRepresentativeImage,
+  getVariantTagNames,
+  normalizeVariantModifiers,
+  parseCategories,
+  parseMenu,
+  parseMenuTags,
+  parseProduct,
+  sumMenuPrices,
+} from '../src/services/menu.ts'
 
 // Fixtures exclusivamente de prueba; nunca se importan desde la aplicación.
 const fixture = {
@@ -147,4 +159,50 @@ test('rechaza protocolos, credenciales y parámetros en la URL base', () => {
     assert.throws(() => normalizeApiUrl(value))
   }
   assert.equal(normalizeApiUrl('http://localhost:8000/'), 'http://localhost:8000')
+})
+
+test('construye rutas de filtrado combinado para /api/menu (q, category_id, uncategorized y tag_id)', () => {
+  assert.equal(buildMenuQueryPath(), '/api/menu')
+  assert.equal(buildMenuQueryPath({ q: '  bowl  ' }), '/api/menu?q=bowl')
+  assert.equal(
+    buildMenuQueryPath({ q: 'ensalada', categoryId: 3, tagIds: [1, 4] }),
+    '/api/menu?q=ensalada&category_id=3&tag_id=1&tag_id=4'
+  )
+  assert.equal(
+    buildMenuQueryPath({ categoryId: 3, uncategorized: true, tagIds: [2] }),
+    '/api/menu?uncategorized=true&tag_id=2'
+  )
+})
+
+test('valida contratos públicos de categorías (/api/categories) y etiquetas (/api/menu/tags)', () => {
+  const categoriesPayload = {
+    categories: [
+      { category_id: 1, name: 'Bowls', color: '#627D32' },
+      { category_id: 2, name: 'Bebidas', color: null },
+    ],
+  }
+  assert.deepEqual(parseCategories(categoriesPayload), categoriesPayload)
+  assert.equal(parseCategories(null), null)
+  assert.throws(() => parseCategories({ categories: [{ category_id: '1', name: 'Bowls' }] }), ApiError)
+
+  const tagsPayload = [
+    { tag_id: 10, name: 'Vegano' },
+    { tag_id: 11, name: 'Alto en proteína' },
+  ]
+  assert.deepEqual(parseMenuTags(tagsPayload), tagsPayload)
+  assert.equal(parseMenuTags(null), null)
+  assert.throws(() => parseMenuTags([{ tag_id: 10 }]), ApiError)
+})
+
+test('acepta productos con categoría comercial e indicadores destacados (is_featured, is_new)', () => {
+  const enrichedProduct = {
+    ...fixture,
+    category: { category_id: 5, name: 'Especiales', color: '#F97316' },
+    is_featured: true,
+    is_new: false,
+  }
+  const parsed = parseMenu({ currency: 'MXN', products: [enrichedProduct] })
+  assert.equal(parsed?.products[0].category?.name, 'Especiales')
+  assert.equal(parsed?.products[0].is_featured, true)
+  assert.equal(parsed?.products[0].is_new, false)
 })
