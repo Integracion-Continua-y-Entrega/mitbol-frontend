@@ -4,21 +4,26 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   assignTagToVariant,
+  changeAdminPassword,
   createTag,
   deleteVariantImage,
+  getAdminDiscounts,
   getAllTags,
   getProductDescription,
+  getProductHighlights,
   getPublicMenuConfig,
   getVariantImages,
   getVariantTags,
+  logoutAllAdmin,
   removeTagFromVariant,
   updateProductAvailability,
   updateProductDescription,
+  updateProductHighlights,
   updateVariantAvailability,
   updateVariantImageOrder,
   uploadVariantImage,
 } from '../../services/adminApi'
-import type { ImageResponse, TagResponse } from '../../services/adminApi'
+import type { DiscountRead, ImageResponse, TagResponse } from '../../services/adminApi'
 import {
   formatPrice,
   getVariantTagNames,
@@ -33,7 +38,16 @@ import { downloadQrAsPng, generateQrMatrix } from '../../utils/qr'
 import '../public/connection.css'
 import './admin.css'
 
-type AdminTab = 'catalog' | 'availability' | 'enrich' | 'qr'
+type AdminTab = 'catalog' | 'availability' | 'enrich' | 'discounts' | 'qr' | 'security'
+
+const ADMIN_TABS: { id: AdminTab; label: string; adminOnly?: boolean }[] = [
+  { id: 'availability', label: 'Disponibilidad' },
+  { id: 'catalog', label: 'Catálogo sincronizado' },
+  { id: 'enrich', label: 'Enriquecer productos', adminOnly: true },
+  { id: 'discounts', label: 'Descuentos', adminOnly: true },
+  { id: 'qr', label: 'Código QR', adminOnly: true },
+  { id: 'security', label: 'Seguridad' },
+]
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -62,6 +76,13 @@ function SyncedProductInspector({ id, currency }: { id: number; currency: string
   return (
     <div className="synced-detail">
       <h3>{detailedProduct.name} (ID #{detailedProduct.product_id})</h3>
+      <div className="badge-row" style={{ marginBottom: '0.5rem' }}>
+        {detailedProduct.category && (
+          <span className="category-pill">Categoría: {detailedProduct.category.name}</span>
+        )}
+        {detailedProduct.is_featured && <span className="highlight-badge featured">★ Destacado</span>}
+        {detailedProduct.is_new && <span className="highlight-badge new-item">✦ Nuevo</span>}
+      </div>
       <p className="muted">
         {detailedProduct.description || 'Sin descripción local configurada.'}
       </p>
@@ -135,10 +156,9 @@ function CatalogSyncedSection({
     <div className="admin-section">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">HU-008 · Integración Loyverse</p>
-          <h2>Consulta administrativa del catálogo sincronizado</h2>
+          <h2>Catálogo sincronizado</h2>
           <p className="muted">
-            Inspecciona productos activos/inactivos, presentaciones, precios comerciales y grupos de modificadores.
+            Inspecciona productos activos/inactivos, categorías, presentaciones, precios comerciales y grupos de modificadores.
           </p>
         </div>
         <button type="button" className="btn-outlined" onClick={onRefresh}>
@@ -169,6 +189,9 @@ function CatalogSyncedSection({
                       <span className={`availability ${prod.is_available ? 'available' : 'sold-out'}`}>
                         {prod.is_available ? 'Disponible local' : 'Agotado local'}
                       </span>
+                      {prod.category && <span className="category-pill">{prod.category.name}</span>}
+                      {prod.is_featured && <span className="highlight-badge featured">★ Destacado</span>}
+                      {prod.is_new && <span className="highlight-badge new-item">✦ Nuevo</span>}
                     </div>
                   </div>
                   <button
@@ -255,8 +278,7 @@ function AvailabilitySection({
     <div className="admin-section">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">HU-007 · Control operativo local</p>
-          <h2>Gestionar disponibilidad de productos</h2>
+          <h2>Disponibilidad de productos</h2>
           <p className="muted">
             Marca platillos como agotados o restablece su disponibilidad en tiempo real sin alterar el inventario de Loyverse.
           </p>
@@ -290,7 +312,7 @@ function AvailabilitySection({
                   {isUpdatingProd
                     ? 'Guardando…'
                     : product.is_available
-                      ? 'Marcar Agotado'
+                      ? 'Marcar agotado'
                       : 'Restablecer disponible'}
                 </button>
               </div>
@@ -300,11 +322,14 @@ function AvailabilitySection({
                   const isUpdatingVar = busyId === `v-${v.product_variant_id}`
                   return (
                     <li key={v.product_variant_id}>
-                      <span>
-                        <strong>{v.name}</strong> ({formatPrice(v.price, currency)})
-                        <small className={v.is_available ? '' : 'status-dot-out'}>
-                          {v.is_available ? 'Disponible' : 'Agotada'}
-                        </small>
+                      <span className="variant-row-left">
+                        <strong>{v.name}</strong>
+                        <span className="variant-meta">
+                          <span>{formatPrice(v.price, currency)}</span>
+                          <span className={v.is_available ? '' : 'variant-sold-out'}>
+                            {v.is_available ? 'Disponible' : 'Agotada'}
+                          </span>
+                        </span>
                       </span>
                       <button
                         type="button"
@@ -326,7 +351,7 @@ function AvailabilitySection({
   )
 }
 
-// HU-005: Enriquecer información de productos (Descripciones, Fotografías y Etiquetas)
+// HU-005: Enriquecer información de productos (Descripciones, Destacados, Fotografías y Etiquetas)
 function EnrichProductsSection({
   products,
   onCatalogChanged,
@@ -359,6 +384,11 @@ function EnrichProductsSection({
   )
   const [savingDesc, setSavingDesc] = useState(false)
 
+  // Estado para Highlights (Destacado / Nuevo)
+  const [isFeatured, setIsFeatured] = useState<boolean>(() => Boolean(selectedProduct?.is_featured))
+  const [isNew, setIsNew] = useState<boolean>(() => Boolean(selectedProduct?.is_new))
+  const [savingHighlights, setSavingHighlights] = useState(false)
+
   // Estado para Fotografías por Variante
   const [images, setImages] = useState<ImageResponse[]>([])
   const [loadingImages, setLoadingImages] = useState(true)
@@ -375,21 +405,26 @@ function EnrichProductsSection({
 
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
 
-  // Consultar descripción solo cuando cambia el ID del producto seleccionado
+  // Consultar descripción e indicadores destacados cuando cambia el ID del producto seleccionado
   useEffect(() => {
     if (!activeProductId) return
     let cancelled = false
-    getProductDescription(activeProductId)
-      .then((res) => {
-        if (!cancelled) setDescriptionText(res.description ?? '')
-      })
-      .catch(() => undefined)
+    Promise.all([
+      getProductDescription(activeProductId).catch(() => null),
+      getProductHighlights(activeProductId).catch(() => null),
+    ]).then(([descRes, highRes]) => {
+      if (cancelled) return
+      if (descRes) setDescriptionText(descRes.description ?? '')
+      if (highRes) {
+        setIsFeatured(highRes.is_featured)
+        setIsNew(highRes.is_new)
+      }
+    })
     return () => {
       cancelled = true
     }
   }, [activeProductId])
 
-  // Función auxiliar para recargar fotos y etiquetas tras una acción del usuario sin perder selección
   const reloadVariantMediaAndTags = useCallback(async (variantId: number) => {
     if (!variantId) return
     try {
@@ -412,7 +447,6 @@ function EnrichProductsSection({
     }
   }, [])
 
-  // Carga inicial o cuando el usuario cambia de variante en el selector
   useEffect(() => {
     if (!activeVariantId) return
     let cancelled = false
@@ -443,7 +477,6 @@ function EnrichProductsSection({
     }
   }, [activeVariantId])
 
-  // Limpiar URL de vista previa
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -457,6 +490,8 @@ function EnrichProductsSection({
     const nextProd = products.find((p) => p.product_id === nextProdId)
     if (nextProd) {
       setDescriptionText(nextProd.description ?? '')
+      setIsFeatured(Boolean(nextProd.is_featured))
+      setIsNew(Boolean(nextProd.is_new))
       const firstVarId = nextProd.variants[0]?.product_variant_id ?? 0
       setSelectedVariantId(firstVarId)
       setLoadingImages(true)
@@ -490,6 +525,32 @@ function EnrichProductsSection({
       })
     } finally {
       setSavingDesc(false)
+    }
+  }
+
+  const handleSaveHighlights = async (nextFeatured: boolean, nextNew: boolean) => {
+    if (!selectedProduct) return
+    setSavingHighlights(true)
+    setNotice(null)
+    try {
+      const updated = await updateProductHighlights(selectedProduct.product_id, {
+        is_featured: nextFeatured,
+        is_new: nextNew,
+      })
+      setIsFeatured(updated.is_featured)
+      setIsNew(updated.is_new)
+      setNotice({
+        type: 'ok',
+        msg: `Indicadores de «${selectedProduct.name}» actualizados (Destacado: ${updated.is_featured ? 'Sí' : 'No'}, Nuevo: ${updated.is_new ? 'Sí' : 'No'}).`,
+      })
+      onCatalogChanged()
+    } catch (err) {
+      setNotice({
+        type: 'err',
+        msg: err instanceof Error ? err.message : 'No se pudieron actualizar los indicadores destacados.',
+      })
+    } finally {
+      setSavingHighlights(false)
     }
   }
 
@@ -639,10 +700,9 @@ function EnrichProductsSection({
     <div className="admin-section">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">HU-005 · Presentación del menú</p>
-          <h2>Enriquecer información de productos</h2>
+          <h2>Enriquecer productos</h2>
           <p className="muted">
-            Administra descripciones locales por producto, así como fotografías (JPG, PNG, WebP hasta 5 MB) y etiquetas por variante.
+            Administra descripciones, indicadores destacados (`is_featured`, `is_new`), fotografías (JPG, PNG, WebP hasta 5 MB) y etiquetas por variante.
           </p>
         </div>
       </div>
@@ -684,25 +744,54 @@ function EnrichProductsSection({
       </div>
 
       <div className="admin-split-grid">
-        {/* Edición de Descripción General */}
-        <form className="panel admin-form" onSubmit={handleSaveDescription}>
-          <h3>Descripción general de «{selectedProduct.name}»</h3>
-          <p className="muted">
-            Se conserva en PostgreSQL (`Products.description`) y las sincronizaciones con Loyverse no la sobrescriben.
-          </p>
-          <label className="form-field">
-            <span>Descripción para el comensal</span>
-            <textarea
-              rows={4}
-              value={descriptionText}
-              onChange={(e) => setDescriptionText(e.target.value)}
-              placeholder="Escribe los ingredientes, preparación o notas saludables del platillo…"
-            />
-          </label>
-          <button type="submit" className="btn-primary" disabled={savingDesc}>
-            {savingDesc ? 'Guardando descripción…' : 'Guardar descripción'}
-          </button>
-        </form>
+        {/* Edición de Descripción General e Indicadores Destacados */}
+        <div className="panel">
+          <form className="admin-form" onSubmit={handleSaveDescription} style={{ marginTop: 0 }}>
+            <h3>Descripción general de «{selectedProduct.name}»</h3>
+            <p className="muted">
+              Se conserva en PostgreSQL (`Products.description`) y las sincronizaciones con Loyverse no la sobrescriben.
+            </p>
+            <label className="form-field">
+              <span>Descripción para el comensal</span>
+              <textarea
+                rows={4}
+                value={descriptionText}
+                onChange={(e) => setDescriptionText(e.target.value)}
+                placeholder="Escribe los ingredientes, preparación o notas saludables del platillo…"
+              />
+            </label>
+            <button type="submit" className="btn-primary" disabled={savingDesc}>
+              {savingDesc ? 'Guardando descripción…' : 'Guardar descripción'}
+            </button>
+          </form>
+
+          <hr style={{ margin: '1.25rem 0', border: 0, borderTop: '1px solid var(--mitbol-border)' }} />
+
+          <div>
+            <h3>Indicadores comerciales (`Highlights`)</h3>
+            <p className="muted">
+              Destaca este platillo en la sección principal («Nuestra carta») o márcalo como novedad en el menú público.
+            </p>
+            <div className="badge-row" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                disabled={savingHighlights}
+                className={`tag-chip ${isFeatured ? 'active' : ''}`}
+                onClick={() => void handleSaveHighlights(!isFeatured, isNew)}
+              >
+                {isFeatured ? '★ Producto Destacado (Activo)' : '☆ Marcar como Destacado'}
+              </button>
+              <button
+                type="button"
+                disabled={savingHighlights}
+                className={`tag-chip ${isNew ? 'active' : ''}`}
+                onClick={() => void handleSaveHighlights(isFeatured, !isNew)}
+              >
+                {isNew ? '✦ Novedad / Nuevo (Activo)' : '✧ Marcar como Nuevo'}
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Administración de Etiquetas por Variante */}
         <div className="panel">
@@ -805,7 +894,7 @@ function EnrichProductsSection({
                   return (
                     <div key={img.product_image_id} className="gallery-item-card">
                       {fullUrl && <img src={fullUrl} alt={`Imagen #${img.product_image_id}`} />}
-                      <div className="gallery-item-Controls">
+                      <div className="gallery-item-controls">
                         <span>Orden: <strong>{img.display_order}</strong></span>
                         <div className="gallery-btn-row">
                           <button
@@ -839,6 +928,208 @@ function EnrichProductsSection({
               </div>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Consulta administrativa de Descuentos sincronizados (/api/admin/discounts)
+function DiscountsSection({ currency }: { currency: string }) {
+  const [discounts, setDiscounts] = useState<DiscountRead[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadDiscounts = useCallback(() => {
+    setLoading(true)
+    getAdminDiscounts()
+      .then((data) => {
+        setDiscounts(data)
+        setError(null)
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'No fue posible consultar /api/admin/discounts.')
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    getAdminDiscounts()
+      .then((data) => {
+        if (cancelled) return
+        setDiscounts(data)
+        setError(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'No fue posible consultar /api/admin/discounts.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const formatDiscountValue = (d: DiscountRead) => {
+    if (d.value === null) return 'Variable en caja'
+    if (d.discount_type.includes('PERCENT')) return `${d.value}%`
+    if (d.discount_type.includes('AMOUNT')) return `${d.value} ${currency}`
+    return d.value
+  }
+
+  return (
+    <div className="admin-section">
+      <div className="section-heading">
+        <div>
+          <h2>Descuentos</h2>
+          <p className="muted">
+            Consulta los descuentos sincronizados desde Loyverse (`GET /api/admin/discounts`), su tipo original, alcance y estado activo.
+          </p>
+        </div>
+        <button type="button" className="btn-outlined" onClick={loadDiscounts}>
+          ↻ Actualizar descuentos
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="notice"><p>Consultando descuentos sincronizados…</p></div>
+      ) : error ? (
+        <div className="notice error"><p>{error}</p></div>
+      ) : discounts.length === 0 ? (
+        <div className="notice">
+          <p>No existen descuentos registrados o sincronizados actualmente en la base de datos.</p>
+        </div>
+      ) : (
+        <div className="product-grid">
+          {discounts.map((d) => (
+            <article key={d.discount_id} className="panel">
+              <div className="variant-box-header">
+                <strong>{d.name}</strong>
+                <span className={`availability ${d.is_active ? 'available' : 'sold-out'}`}>
+                  {d.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              <p className="price" style={{ margin: '0.5rem 0' }}>
+                Valor: {formatDiscountValue(d)}
+              </p>
+              <p className="muted" style={{ fontSize: '0.85rem', margin: 0 }}>
+                Tipo: <code>{d.discount_type}</code> · Alcance: <code>{d.scope}</code>
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Seguridad de Cuenta (/api/auth/change-password y /api/auth/logout-all)
+function AccountSecuritySection({ onLoggedOutAll }: { onLoggedOutAll: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [closingAll, setClosingAll] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+
+  const handlePasswordChange = async (e: FormEvent) => {
+    e.preventDefault()
+    setFeedback(null)
+    setSubmitting(true)
+    try {
+      await changeAdminPassword(currentPassword, newPassword)
+      setCurrentPassword('')
+      setNewPassword('')
+      setFeedback({ type: 'ok', msg: 'Contraseña actualizada correctamente.' })
+    } catch (err) {
+      setFeedback({
+        type: 'err',
+        msg: err instanceof Error ? err.message : 'No fue posible actualizar la contraseña.',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleLogoutAll = async () => {
+    setClosingAll(true)
+    setFeedback(null)
+    try {
+      await logoutAllAdmin()
+      onLoggedOutAll()
+    } catch (err) {
+      setFeedback({
+        type: 'err',
+        msg: err instanceof Error ? err.message : 'Error al cerrar las sesiones activas.',
+      })
+      setClosingAll(false)
+    }
+  }
+
+  return (
+    <div className="admin-section">
+      <div className="section-heading">
+        <div>
+          <h2>Seguridad de la cuenta</h2>
+          <p className="muted">
+            Actualiza tu contraseña de acceso (mínimo 15 caracteres) o cierra todas las sesiones abiertas en otros dispositivos.
+          </p>
+        </div>
+      </div>
+
+      {feedback && (
+        <div className={`notice ${feedback.type === 'err' ? 'error' : ''}`} role="status">
+          <p>{feedback.msg}</p>
+        </div>
+      )}
+
+      <div className="admin-split-grid">
+        <form className="panel admin-form" onSubmit={handlePasswordChange} style={{ marginTop: 0 }}>
+          <h3>Cambiar contraseña</h3>
+          <label className="form-field">
+            <span>Contraseña actual</span>
+            <input
+              type="password"
+              required
+              minLength={1}
+              maxLength={1024}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="form-field">
+            <span>Nueva contraseña (mínimo 15 caracteres)</span>
+            <input
+              type="password"
+              required
+              minLength={15}
+              maxLength={1024}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          <button type="submit" className="btn-primary" disabled={submitting}>
+            {submitting ? 'Actualizando…' : 'Actualizar contraseña'}
+          </button>
+        </form>
+
+        <div className="panel">
+          <h3>Sesiones activas en dispositivos</h3>
+          <p className="muted">
+            Si iniciaste sesión en otra computadora o tableta del restaurante, puedes revocar todas las sesiones activas de inmediato (`POST /api/auth/logout-all`).
+          </p>
+          <button
+            type="button"
+            className="btn-inverted"
+            disabled={closingAll}
+            onClick={() => void handleLogoutAll()}
+          >
+            {closingAll ? 'Cerrando sesiones…' : 'Cerrar sesión en todos los dispositivos'}
+          </button>
         </div>
       </div>
     </div>
@@ -888,8 +1179,7 @@ function QrGeneratorSection() {
     <div className="admin-section">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">HU-004 · Acceso general en restaurante</p>
-          <h2>Código QR del Menú Digital</h2>
+          <h2>Código QR del menú digital</h2>
           <p className="muted">
             Genera, descarga e imprime el código QR general para que los comensales abran el menú digital desde su dispositivo móvil.
           </p>
@@ -992,7 +1282,7 @@ function QrGeneratorSection() {
 }
 
 export default function AdminDashboardPage() {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, refreshSession, isAdmin } = useAuth()
   const { result, retry } = useApi('/api/menu', parseMenu)
   const [activeTab, setActiveTab] = useState<AdminTab>('availability')
   const [cachedMenu, setCachedMenu] = useState<MenuResponse | null>(null)
@@ -1006,90 +1296,76 @@ export default function AdminDashboardPage() {
   const currency = activeData ? activeData.currency : 'MXN'
 
   return (
-    <div className="connection-page admin-page">
-      <header className="site-header no-print">
-        <div className="brand-logo">
-          <div className="brand-text">
-            <span className="brand-title">
-              mitb<span className="brand-o">o</span>l
-            </span>
-            <span className="brand-subtitle">PANEL ADMINISTRATIVO Y OPERATIVO</span>
+    <div className="admin-page">
+      <header className="admin-header no-print">
+        <div className="admin-header-inner">
+          <div className="brand-logo">
+            <img src="/mitbol-logo.png" alt="" width="48" height="48" />
+            <div className="brand-text">
+              <span className="brand-title">mitbol</span>
+              <h1 className="brand-subtitle">Panel administrativo</h1>
+            </div>
           </div>
-        </div>
 
-        <div className="admin-user-bar">
-          {user && (
-            <span className="user-pill">
-              <strong>{user.name}</strong> ({user.roles.join(', ') || 'Personal'})
-            </span>
-          )}
-          <Link to="/" className="btn-outlined">Ver menú público</Link>
-          <button type="button" className="btn-inverted" onClick={() => void logout()}>
-            Cerrar sesión
-          </button>
+          <div className="admin-user-bar">
+            {user && (
+              <div className="admin-user">
+                <strong>{user.name}</strong>
+                <span>{user.roles.join(', ') || 'Personal'}</span>
+              </div>
+            )}
+            <Link to="/" className="btn-outlined">Ver menú público</Link>
+            <button type="button" className="btn-secondary" onClick={() => void logout()}>
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </header>
 
-      <nav className="admin-tabs no-print" aria-label="Secciones administrativas">
-        <button
-          type="button"
-          className={`pill-nav-item ${activeTab === 'availability' ? 'active' : ''}`}
-          onClick={() => setActiveTab('availability')}
-        >
-          Disponibilidad (HU-007)
-        </button>
-        <button
-          type="button"
-          className={`pill-nav-item ${activeTab === 'catalog' ? 'active' : ''}`}
-          onClick={() => setActiveTab('catalog')}
-        >
-          Catálogo Sincronizado (HU-008)
-        </button>
-        {isAdmin && (
-          <button
-            type="button"
-            className={`pill-nav-item ${activeTab === 'enrich' ? 'active' : ''}`}
-            onClick={() => setActiveTab('enrich')}
-          >
-            Enriquecer Productos (HU-005)
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            type="button"
-            className={`pill-nav-item ${activeTab === 'qr' ? 'active' : ''}`}
-            onClick={() => setActiveTab('qr')}
-          >
-            Código QR (HU-004)
-          </button>
-        )}
-      </nav>
+      <div className="admin-layout">
+        <nav className="admin-tabs no-print" aria-label="Secciones administrativas">
+          {ADMIN_TABS.filter((tab) => isAdmin || !tab.adminOnly).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={activeTab === id ? 'true' : undefined}
+              onClick={() => setActiveTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
-      <main>
-        {result.status === 'loading' && !activeData && (
-          <div className="notice"><p>Cargando productos desde el backend…</p></div>
-        )}
-        {result.status === 'error' && !activeData && (
-          <div className="notice error">
-            <p>{result.message}</p>
-            <button type="button" className="btn-inverted" onClick={retry}>Reintentar</button>
-          </div>
-        )}
-        {activeData && (
-          <>
-            {activeTab === 'availability' && (
-              <AvailabilitySection products={products} currency={currency} onUpdated={retry} />
-            )}
-            {activeTab === 'catalog' && (
-              <CatalogSyncedSection products={products} currency={currency} onRefresh={retry} />
-            )}
-            {activeTab === 'enrich' && (
-              <EnrichProductsSection products={products} onCatalogChanged={retry} />
-            )}
-            {activeTab === 'qr' && <QrGeneratorSection />}
-          </>
-        )}
-      </main>
+        <main className="admin-content">
+          {result.status === 'loading' && !activeData && (
+            <div className="notice"><p>Cargando productos desde el backend…</p></div>
+          )}
+          {result.status === 'error' && !activeData && (
+            <div className="notice error">
+              <p>{result.message}</p>
+              <button type="button" className="btn-inverted" onClick={retry}>Reintentar</button>
+            </div>
+          )}
+          {activeData && (
+            <>
+              {activeTab === 'availability' && (
+                <AvailabilitySection products={products} currency={currency} onUpdated={retry} />
+              )}
+              {activeTab === 'catalog' && (
+                <CatalogSyncedSection products={products} currency={currency} onRefresh={retry} />
+              )}
+              {activeTab === 'enrich' && (
+                <EnrichProductsSection products={products} onCatalogChanged={retry} />
+              )}
+              {activeTab === 'discounts' && <DiscountsSection currency={currency} />}
+              {activeTab === 'qr' && <QrGeneratorSection />}
+              {activeTab === 'security' && (
+                <AccountSecuritySection onLoggedOutAll={() => void refreshSession()} />
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   )
 }

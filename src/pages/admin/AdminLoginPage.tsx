@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import '../public/connection.css'
 import './admin.css'
@@ -32,26 +32,22 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="connection-page admin-page admin-login-wrapper">
-      <header className="site-header">
-        <Link className="brand" to="/">
-          <div className="brand-text">
-            <span className="brand-title">
-              mitb<span className="brand-o">o</span>l
-            </span>
-            <span className="brand-subtitle">COCINA SALUDABLE · ADMIN</span>
-          </div>
-        </Link>
-        <Link to="/" className="btn-outlined">← Volver al menú público</Link>
-      </header>
-
+    <div className="admin-page admin-login-wrapper">
       <main className="login-main">
-        <section className="panel login-card" aria-labelledby="login-title">
-          <span className="eyebrow">Personal autorizado</span>
-          <h1 id="login-title">Acceso Administrativo</h1>
-          <p className="muted">
-            Inicia sesión con tu cuenta de Administrador o Staff operativo para gestionar disponibilidad, catálogo y código QR.
-          </p>
+        <div className="login-brand-panel">
+          <div className="brand-logo">
+            <img src="/mitbol-logo.png" alt="" width="48" height="48" />
+            <div className="brand-text">
+              <span className="brand-title">mitbol</span>
+              <span className="brand-subtitle">Cocina saludable</span>
+            </div>
+          </div>
+          <p className="login-brand-title">Panel administrativo</p>
+        </div>
+
+        <section className="login-card" aria-labelledby="login-title">
+          <h1 id="login-title">Iniciar sesión</h1>
+          <p className="muted">Accede con tu cuenta de administrador o de personal operativo.</p>
 
           {error && (
             <div className="notice error" role="alert">
@@ -69,7 +65,6 @@ export default function AdminLoginPage() {
                 maxLength={254}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@mitbol.com"
                 autoComplete="username"
               />
             </label>
@@ -81,7 +76,6 @@ export default function AdminLoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
                 autoComplete="current-password"
               />
             </label>

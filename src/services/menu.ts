@@ -24,6 +24,9 @@ export interface MenuProduct {
   price_max: string | null
   has_price_range: boolean
   variants: MenuVariant[]
+  category?: { category_id: number; name: string; color: string | null } | null
+  is_featured?: boolean
+  is_new?: boolean
 }
 
 export interface MenuResponse { currency: string; products: MenuProduct[] }
